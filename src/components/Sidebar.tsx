@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -15,7 +14,9 @@ import {
   Calculator,
   UserCheck,
   Building2,
-  Receipt
+  Receipt,
+  FileText,
+  BarChart3
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -49,7 +50,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       expenses: 'Expenses',
       settings: 'Settings',
       logout: 'Logout',
-      welcome: 'Welcome'
+      welcome: 'Welcome',
+      prescriptions: 'Prescriptions',
+      enhancedReports: 'Analytics'
     },
     ur: {
       dashboard: 'ڈیش بورڈ',
@@ -66,7 +69,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       expenses: 'اخراجات',
       settings: 'سیٹنگز',
       logout: 'لاگ آؤٹ',
-      welcome: 'خوش آمدید'
+      welcome: 'خوش آمدید',
+      prescriptions: 'نسخے',
+      enhancedReports: 'تجزیات'
     }
   };
 
@@ -77,11 +82,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'medicines', label: t.medicines, icon: Package },
     { id: 'pos', label: t.pos, icon: ShoppingCart },
     { id: 'inventory', label: t.inventory, icon: Warehouse },
+    { id: 'prescriptions', label: t.prescriptions, icon: FileText },
     { id: 'customers', label: t.customers, icon: Users },
     { id: 'suppliers', label: t.suppliers, icon: Building },
     { id: 'branches', label: t.branches, icon: Building2 },
     { id: 'staff-attendance', label: t.staffAttendance, icon: UserCheck },
     { id: 'tax-module', label: t.taxModule, icon: Receipt },
+    { id: 'enhanced-reports', label: t.enhancedReports, icon: BarChart3 },
     { id: 'reports', label: t.reports, icon: FileBarChart },
     { id: 'audit-logs', label: t.auditLogs, icon: Clock },
     { id: 'expenses', label: t.expenses, icon: Calculator },
