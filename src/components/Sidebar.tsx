@@ -9,7 +9,9 @@ import {
   FileText, 
   Settings, 
   LogOut,
-  User
+  User,
+  Activity,
+  TrendingDown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -49,9 +51,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: { en: 'Inventory', ur: 'انوینٹری' }
     },
     {
+      id: 'expenses',
+      icon: TrendingDown,
+      label: { en: 'Expenses', ur: 'اخراجات' }
+    },
+    {
       id: 'reports',
       icon: FileText,
       label: { en: 'Reports', ur: 'رپورٹس' }
+    },
+    {
+      id: 'audit-logs',
+      icon: Activity,
+      label: { en: 'Audit Logs', ur: 'آڈٹ لاگز' }
     },
     {
       id: 'settings',

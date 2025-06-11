@@ -8,6 +8,9 @@ import InventoryControl from '../components/InventoryControl';
 import Reports from '../components/Reports';
 import Settings from '../components/Settings';
 import Login from '../components/Login';
+import Footer from '../components/Footer';
+import AuditLogs from '../components/AuditLogs';
+import ExpenseTracker from '../components/ExpenseTracker';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -15,7 +18,12 @@ const Index = () => {
   const [isUrdu, setIsUrdu] = useState(false);
 
   if (!currentUser) {
-    return <Login onLogin={setCurrentUser} isUrdu={isUrdu} setIsUrdu={setIsUrdu} />;
+    return (
+      <>
+        <Login onLogin={setCurrentUser} isUrdu={isUrdu} setIsUrdu={setIsUrdu} />
+        <Footer />
+      </>
+    );
   }
 
   const renderActiveModule = () => {
@@ -30,6 +38,10 @@ const Index = () => {
         return <InventoryControl isUrdu={isUrdu} />;
       case 'reports':
         return <Reports isUrdu={isUrdu} />;
+      case 'audit-logs':
+        return <AuditLogs isUrdu={isUrdu} />;
+      case 'expenses':
+        return <ExpenseTracker isUrdu={isUrdu} />;
       case 'settings':
         return <Settings isUrdu={isUrdu} setIsUrdu={setIsUrdu} />;
       default:
@@ -49,6 +61,7 @@ const Index = () => {
       <div className="flex-1 overflow-hidden">
         {renderActiveModule()}
       </div>
+      <Footer />
     </div>
   );
 };
