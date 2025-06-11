@@ -3,15 +3,19 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
-  Pill, 
-  ShoppingCart, 
   Package, 
-  FileText, 
+  ShoppingCart, 
+  Warehouse, 
+  Users, 
+  Building, 
+  FileBarChart, 
   Settings, 
   LogOut,
-  User,
-  Activity,
-  TrendingDown
+  Clock,
+  Calculator,
+  UserCheck,
+  Building2,
+  Receipt
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -29,107 +33,96 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout, 
   isUrdu 
 }) => {
-  const menuItems = [
-    {
-      id: 'dashboard',
-      icon: LayoutDashboard,
-      label: { en: 'Dashboard', ur: 'ڈیش بورڈ' }
+  const text = {
+    en: {
+      dashboard: 'Dashboard',
+      medicines: 'Medicines',
+      pos: 'Point of Sale',
+      inventory: 'Inventory',
+      customers: 'Customers',
+      suppliers: 'Suppliers',
+      branches: 'Branches',
+      staffAttendance: 'Staff Attendance',
+      taxModule: 'Tax Module',
+      reports: 'Reports',
+      auditLogs: 'Audit Logs',
+      expenses: 'Expenses',
+      settings: 'Settings',
+      logout: 'Logout',
+      welcome: 'Welcome'
     },
-    {
-      id: 'medicines',
-      icon: Pill,
-      label: { en: 'Medicines', ur: 'ادویات' }
-    },
-    {
-      id: 'pos',
-      icon: ShoppingCart,
-      label: { en: 'POS/Sales', ur: 'سیلز' }
-    },
-    {
-      id: 'inventory',
-      icon: Package,
-      label: { en: 'Inventory', ur: 'انوینٹری' }
-    },
-    {
-      id: 'expenses',
-      icon: TrendingDown,
-      label: { en: 'Expenses', ur: 'اخراجات' }
-    },
-    {
-      id: 'reports',
-      icon: FileText,
-      label: { en: 'Reports', ur: 'رپورٹس' }
-    },
-    {
-      id: 'audit-logs',
-      icon: Activity,
-      label: { en: 'Audit Logs', ur: 'آڈٹ لاگز' }
-    },
-    {
-      id: 'settings',
-      icon: Settings,
-      label: { en: 'Settings', ur: 'سیٹنگز' }
+    ur: {
+      dashboard: 'ڈیش بورڈ',
+      medicines: 'ادویات',
+      pos: 'پوائنٹ آف سیل',
+      inventory: 'انوینٹری',
+      customers: 'کسٹمرز',
+      suppliers: 'سپلائرز',
+      branches: 'برانچز',
+      staffAttendance: 'عملے کی حاضری',
+      taxModule: 'ٹیکس ماڈیول',
+      reports: 'رپورٹس',
+      auditLogs: 'آڈٹ لاگز',
+      expenses: 'اخراجات',
+      settings: 'سیٹنگز',
+      logout: 'لاگ آؤٹ',
+      welcome: 'خوش آمدید'
     }
+  };
+
+  const t = isUrdu ? text.ur : text.en;
+
+  const menuItems = [
+    { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
+    { id: 'medicines', label: t.medicines, icon: Package },
+    { id: 'pos', label: t.pos, icon: ShoppingCart },
+    { id: 'inventory', label: t.inventory, icon: Warehouse },
+    { id: 'customers', label: t.customers, icon: Users },
+    { id: 'suppliers', label: t.suppliers, icon: Building },
+    { id: 'branches', label: t.branches, icon: Building2 },
+    { id: 'staff-attendance', label: t.staffAttendance, icon: UserCheck },
+    { id: 'tax-module', label: t.taxModule, icon: Receipt },
+    { id: 'reports', label: t.reports, icon: FileBarChart },
+    { id: 'audit-logs', label: t.auditLogs, icon: Clock },
+    { id: 'expenses', label: t.expenses, icon: Calculator },
+    { id: 'settings', label: t.settings, icon: Settings }
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="bg-blue-600 p-2 rounded-lg">
-            <Pill className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">
-              {isUrdu ? 'فارمیسی' : 'Pharmacy'}
-            </h1>
-            <p className="text-sm text-gray-600">
-              {isUrdu ? 'منیجمنٹ' : 'Management'}
-            </p>
-          </div>
-        </div>
+        <h1 className="text-xl font-bold text-gray-800">PharmaCare</h1>
+        <p className="text-sm text-gray-600">{t.welcome}, {currentUser?.name || 'User'}</p>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      {/* Navigation Menu */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeModule === item.id;
-          
           return (
             <Button
               key={item.id}
-              variant={isActive ? "default" : "ghost"}
+              variant={activeModule === item.id ? "default" : "ghost"}
               className={`w-full justify-start ${isUrdu ? 'flex-row-reverse' : ''}`}
               onClick={() => setActiveModule(item.id)}
             >
               <Icon className={`h-4 w-4 ${isUrdu ? 'ml-2' : 'mr-2'}`} />
-              {isUrdu ? item.label.ur : item.label.en}
+              {item.label}
             </Button>
           );
         })}
       </nav>
 
-      {/* User Info & Logout */}
+      {/* Logout Button */}
       <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="bg-gray-100 p-2 rounded-full">
-            <User className="h-4 w-4 text-gray-600" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900">{currentUser.name}</p>
-            <p className="text-xs text-gray-600 capitalize">{currentUser.role}</p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
+        <Button 
+          variant="outline" 
+          className={`w-full ${isUrdu ? 'flex-row-reverse' : ''}`}
           onClick={onLogout}
         >
-          <LogOut className="h-4 w-4 mr-2" />
-          {isUrdu ? 'لاگ آؤٹ' : 'Logout'}
+          <LogOut className={`h-4 w-4 ${isUrdu ? 'ml-2' : 'mr-2'}`} />
+          {t.logout}
         </Button>
       </div>
     </div>

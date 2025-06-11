@@ -11,6 +11,11 @@ import Login from '../components/Login';
 import Footer from '../components/Footer';
 import AuditLogs from '../components/AuditLogs';
 import ExpenseTracker from '../components/ExpenseTracker';
+import CustomerManagement from '../components/CustomerManagement';
+import SupplierManagement from '../components/SupplierManagement';
+import BranchManagement from '../components/BranchManagement';
+import StaffAttendance from '../components/StaffAttendance';
+import TaxModule from '../components/TaxModule';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -36,6 +41,16 @@ const Index = () => {
         return <POSSystem isUrdu={isUrdu} />;
       case 'inventory':
         return <InventoryControl isUrdu={isUrdu} />;
+      case 'customers':
+        return <CustomerManagement isUrdu={isUrdu} />;
+      case 'suppliers':
+        return <SupplierManagement isUrdu={isUrdu} />;
+      case 'branches':
+        return <BranchManagement isUrdu={isUrdu} />;
+      case 'staff-attendance':
+        return <StaffAttendance isUrdu={isUrdu} />;
+      case 'tax-module':
+        return <TaxModule isUrdu={isUrdu} />;
       case 'reports':
         return <Reports isUrdu={isUrdu} />;
       case 'audit-logs':
