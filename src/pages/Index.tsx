@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Dashboard from '../components/Dashboard';
@@ -17,6 +18,7 @@ import StaffAttendance from '../components/StaffAttendance';
 import TaxModule from '../components/TaxModule';
 import PrescriptionTracking from '../components/PrescriptionTracking';
 import EnhancedReports from '../components/EnhancedReports';
+import MedicineDatabase from '../components/MedicineDatabase';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -38,6 +40,8 @@ const Index = () => {
         return <Dashboard isUrdu={isUrdu} />;
       case 'medicines':
         return <MedicineManagement isUrdu={isUrdu} />;
+      case 'medicine-database':
+        return <MedicineDatabase isUrdu={isUrdu} />;
       case 'pos':
         return <POSSystem isUrdu={isUrdu} />;
       case 'inventory':

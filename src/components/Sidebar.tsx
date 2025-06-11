@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -16,7 +17,8 @@ import {
   Building2,
   Receipt,
   FileText,
-  BarChart3
+  BarChart3,
+  Database
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     en: {
       dashboard: 'Dashboard',
       medicines: 'Medicines',
+      medicineDatabase: '20K Database',
       pos: 'Point of Sale',
       inventory: 'Inventory',
       customers: 'Customers',
@@ -57,6 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     ur: {
       dashboard: 'ڈیش بورڈ',
       medicines: 'ادویات',
+      medicineDatabase: '20 ہزار ڈیٹابیس',
       pos: 'پوائنٹ آف سیل',
       inventory: 'انوینٹری',
       customers: 'کسٹمرز',
@@ -80,6 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'medicines', label: t.medicines, icon: Package },
+    { id: 'medicine-database', label: t.medicineDatabase, icon: Database },
     { id: 'pos', label: t.pos, icon: ShoppingCart },
     { id: 'inventory', label: t.inventory, icon: Warehouse },
     { id: 'prescriptions', label: t.prescriptions, icon: FileText },

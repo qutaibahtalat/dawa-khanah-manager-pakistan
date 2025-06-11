@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import PrescriptionForm from './PrescriptionForm';
 import { 
   FileText, 
   Upload, 
@@ -17,7 +17,9 @@ import {
   CheckCircle,
   AlertCircle,
   Eye,
-  Download
+  Download,
+  Edit,
+  Plus
 } from 'lucide-react';
 
 interface PrescriptionTrackingProps {
@@ -28,6 +30,7 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPrescription, setSelectedPrescription] = useState<any>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingPrescription, setEditingPrescription] = useState<any>(null);
 
   const text = {
     en: {
@@ -48,8 +51,10 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
       partial: 'Partial',
       completed: 'Completed',
       view: 'View',
+      edit: 'Edit',
       dispense: 'Dispense',
-      print: 'Print'
+      print: 'Print',
+      download: 'Download'
     },
     ur: {
       title: 'نسخے کی ٹریکنگ',
@@ -69,15 +74,17 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
       partial: 'جزوی',
       completed: 'مکمل',
       view: 'دیکھیں',
+      edit: 'تبدیل کریں',
       dispense: 'دیں',
-      print: 'پرنٹ'
+      print: 'پرنٹ',
+      download: 'ڈاؤن لوڈ'
     }
   };
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Sample prescription data
-  const prescriptions = [
+  // Sample prescription data with state management
+  const [prescriptions, setPrescriptions] = useState([
     {
       id: 'RX001',
       patientName: 'Ahmed Hassan',
@@ -103,7 +110,47 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
       instructions: 'Take after meals for 5 days.',
       imageUrl: null
     }
-  ];
+  ]);
+
+  const handleAddPrescription = (prescriptionData: any) => {
+    setPrescriptions(prev => [...prev, prescriptionData]);
+    console.log('Prescription added:', prescriptionData);
+  };
+
+  const handleEditPrescription = (prescriptionData: any) => {
+    setPrescriptions(prev => prev.map(p => 
+      p.id === prescriptionData.id ? prescriptionData : p
+    ));
+    console.log('Prescription updated:', prescriptionData);
+  };
+
+  const downloadPrescription = (prescription: any) => {
+    // Create a simple text format for download
+    const content = `
+PRESCRIPTION - ${prescription.id}
+==============================
+Patient: ${prescription.patientName}
+Doctor: ${prescription.doctorName}
+Date: ${prescription.date}
+Status: ${prescription.status}
+
+MEDICINES:
+${prescription.medicines.map((med: any) => 
+  `- ${med.name}\n  Dosage: ${med.dosage}\n  Quantity: ${med.quantity}`
+).join('\n')}
+
+INSTRUCTIONS:
+${prescription.instructions}
+`;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `prescription_${prescription.id}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -136,7 +183,7 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
         <Button onClick={() => setShowAddForm(true)}>
-          <FileText className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 mr-2" />
           {t.addPrescription}
         </Button>
       </div>
@@ -198,7 +245,10 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
                         <Button size="sm" variant="outline" onClick={() => setSelectedPrescription(prescription)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => setEditingPrescription(prescription)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => downloadPrescription(prescription)}>
                           <Download className="h-4 w-4" />
                         </Button>
                       </div>
@@ -261,6 +311,25 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
           </div>
         )}
       </div>
+
+      {/* Add Prescription Form */}
+      {showAddForm && (
+        <PrescriptionForm
+          isUrdu={isUrdu}
+          onClose={() => setShowAddForm(false)}
+          onSave={handleAddPrescription}
+        />
+      )}
+
+      {/* Edit Prescription Form */}
+      {editingPrescription && (
+        <PrescriptionForm
+          isUrdu={isUrdu}
+          onClose={() => setEditingPrescription(null)}
+          onSave={handleEditPrescription}
+          prescription={editingPrescription}
+        />
+      )}
     </div>
   );
 };
