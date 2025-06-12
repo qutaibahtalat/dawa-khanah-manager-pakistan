@@ -20,6 +20,7 @@ import {
   Eye,
   AlertCircle
 } from 'lucide-react';
+import SupplierForm from './SupplierForm';
 
 interface SupplierManagementProps {
   isUrdu: boolean;
@@ -28,6 +29,43 @@ interface SupplierManagementProps {
 const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [suppliers, setSuppliers] = useState([
+    {
+      id: 1,
+      companyName: 'PharmaCorp Ltd',
+      contactPerson: 'Mr. Hassan Ali',
+      phone: '+92-21-34567890',
+      email: 'hassan@pharmacorp.com',
+      address: 'Industrial Area, Karachi',
+      taxId: 'NTN-1234567',
+      totalPurchases: 2500000.00,
+      pendingPayments: 125000.00,
+      lastOrder: '2024-12-08',
+      status: 'active',
+      purchases: [
+        { date: '2024-12-08', amount: 125000.00, items: 'Antibiotics, Pain killers', invoice: 'INV-001' },
+        { date: '2024-11-25', amount: 85000.00, items: 'Vitamins, Syrups', invoice: 'INV-002' }
+      ]
+    },
+    {
+      id: 2,
+      companyName: 'MediSupply Solutions',
+      contactPerson: 'Ms. Ayesha Khan',
+      phone: '+92-42-87654321',
+      email: 'ayesha@medisupply.com',
+      address: 'Medical Complex, Lahore',
+      taxId: 'NTN-7654321',
+      totalPurchases: 1850000.00,
+      pendingPayments: 0.00,
+      lastOrder: '2024-12-06',
+      status: 'active',
+      purchases: [
+        { date: '2024-12-06', amount: 95000.00, items: 'Surgical supplies', invoice: 'INV-003' }
+      ]
+    }
+  ]);
 
   const text = {
     en: {
@@ -80,54 +118,38 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Sample supplier data
-  const suppliers = [
-    {
-      id: 1,
-      companyName: 'PharmaCorp Ltd',
-      contactPerson: 'Mr. Hassan Ali',
-      phone: '+92-21-34567890',
-      email: 'hassan@pharmacorp.com',
-      address: 'Industrial Area, Karachi',
-      taxId: 'NTN-1234567',
-      totalPurchases: 2500000.00,
-      pendingPayments: 125000.00,
-      lastOrder: '2024-12-08',
-      status: 'active',
-      purchases: [
-        { date: '2024-12-08', amount: 125000.00, items: 'Antibiotics, Pain killers', invoice: 'INV-001' },
-        { date: '2024-11-25', amount: 85000.00, items: 'Vitamins, Syrups', invoice: 'INV-002' }
-      ]
-    },
-    {
-      id: 2,
-      companyName: 'MediSupply Solutions',
-      contactPerson: 'Ms. Ayesha Khan',
-      phone: '+92-42-87654321',
-      email: 'ayesha@medisupply.com',
-      address: 'Medical Complex, Lahore',
-      taxId: 'NTN-7654321',
-      totalPurchases: 1850000.00,
-      pendingPayments: 0.00,
-      lastOrder: '2024-12-06',
-      status: 'active',
-      purchases: [
-        { date: '2024-12-06', amount: 95000.00, items: 'Surgical supplies', invoice: 'INV-003' }
-      ]
-    }
-  ];
-
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.phone.includes(searchTerm)
   );
 
+  const handleSaveSupplier = (supplierData: any) => {
+    if (editingSupplier) {
+      setSuppliers(suppliers.map(s => s.id === supplierData.id ? supplierData : s));
+    } else {
+      setSuppliers([...suppliers, supplierData]);
+    }
+    setEditingSupplier(null);
+  };
+
+  const handleEditSupplier = (supplier: any) => {
+    setEditingSupplier(supplier);
+    setShowForm(true);
+  };
+
+  const handleDeleteSupplier = (supplierId: number) => {
+    setSuppliers(suppliers.filter(s => s.id !== supplierId));
+    if (selectedSupplier?.id === supplierId) {
+      setSelectedSupplier(null);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-        <Button>
+        <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
           {t.addSupplier}
         </Button>
@@ -202,10 +224,10 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
                       <Button size="sm" variant="outline" onClick={() => setSelectedSupplier(supplier)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleEditSupplier(supplier)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteSupplier(supplier.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -280,6 +302,18 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
           </div>
         )}
       </div>
+
+      {showForm && (
+        <SupplierForm
+          isUrdu={isUrdu}
+          onClose={() => {
+            setShowForm(false);
+            setEditingSupplier(null);
+          }}
+          onSave={handleSaveSupplier}
+          supplier={editingSupplier}
+        />
+      )}
     </div>
   );
 };

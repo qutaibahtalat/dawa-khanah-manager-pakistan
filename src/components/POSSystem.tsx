@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Search, 
   Plus, 
@@ -14,8 +15,12 @@ import {
   Printer,
   Calculator,
   User,
-  Receipt
+  Receipt,
+  CreditCard,
+  Banknote,
+  CheckCircle
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface POSSystemProps {
   isUrdu: boolean;
@@ -25,6 +30,10 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '' });
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [amountReceived, setAmountReceived] = useState('');
+  const { toast } = useToast();
 
   const text = {
     en: {
@@ -44,7 +53,16 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       qty: 'Qty',
       price: 'Price',
       amount: 'Amount',
-      addToCart: 'Add to Cart'
+      addToCart: 'Add to Cart',
+      paymentMethod: 'Payment Method',
+      cash: 'Cash',
+      card: 'Card',
+      amountReceived: 'Amount Received',
+      change: 'Change',
+      confirmPayment: 'Confirm Payment',
+      cancel: 'Cancel',
+      paymentSuccessful: 'Payment successful!',
+      receiptPrinted: 'Receipt printed successfully!'
     },
     ur: {
       title: 'پوائنٹ آف سیل',
@@ -63,7 +81,16 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       qty: 'تعداد',
       price: 'قیمت',
       amount: 'رقم',
-      addToCart: 'ٹوکری میں شامل'
+      addToCart: 'ٹوکری میں شامل',
+      paymentMethod: 'ادائیگی کا طریقہ',
+      cash: 'نقد',
+      card: 'کارڈ',
+      amountReceived: 'وصول شدہ رقم',
+      change: 'واپسی',
+      confirmPayment: 'ادائیگی کی تصدیق',
+      cancel: 'منسوخ',
+      paymentSuccessful: 'ادائیگی کامیاب!',
+      receiptPrinted: 'رسید کامیابی سے پرنٹ ہوئی!'
     }
   };
 
@@ -143,6 +170,67 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const discount = 0; // Can be implemented with discount logic
   const tax = subtotal * 0.17; // 17% sales tax (example for Pakistan)
   const total = subtotal - discount + tax;
+  const change = parseFloat(amountReceived) - total;
+
+  const handleProcessPayment = () => {
+    setShowPaymentDialog(true);
+  };
+
+  const confirmPayment = () => {
+    // Process payment logic here
+    toast({
+      title: t.paymentSuccessful,
+      description: `Total: PKR ${total.toFixed(2)}, Method: ${paymentMethod}`,
+    });
+    
+    setShowPaymentDialog(false);
+    setCartItems([]);
+    setCustomerInfo({ name: '', phone: '' });
+    setAmountReceived('');
+  };
+
+  const printReceipt = () => {
+    const receiptContent = `
+PharmaCare Receipt
+==================
+Date: ${new Date().toLocaleString()}
+Customer: ${customerInfo.name || 'Walk-in Customer'}
+Phone: ${customerInfo.phone || 'N/A'}
+
+Items:
+${cartItems.map(item => 
+  `${item.name} x${item.quantity} @ PKR ${item.price} = PKR ${(item.price * item.quantity).toFixed(2)}`
+).join('\n')}
+
+Subtotal: PKR ${subtotal.toFixed(2)}
+Tax (17%): PKR ${tax.toFixed(2)}
+Total: PKR ${total.toFixed(2)}
+Payment: ${paymentMethod.toUpperCase()}
+${paymentMethod === 'cash' ? `Received: PKR ${amountReceived}\nChange: PKR ${change.toFixed(2)}` : ''}
+
+Thank you for your purchase!
+==================
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Receipt</title></head>
+          <body style="font-family: monospace; white-space: pre;">
+            ${receiptContent}
+          </body>
+        </html>
+      `);
+      printWindow.print();
+      printWindow.close();
+    }
+
+    toast({
+      title: t.receiptPrinted,
+      description: 'Receipt has been sent to printer',
+    });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -307,11 +395,11 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                 </div>
                 
                 <div className="space-y-2 mt-4">
-                  <Button className="w-full">
+                  <Button className="w-full" onClick={handleProcessPayment}>
                     <Receipt className="h-4 w-4 mr-2" />
                     {t.processPayment}
                   </Button>
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" className="w-full" onClick={printReceipt}>
                     <Printer className="h-4 w-4 mr-2" />
                     {t.printReceipt}
                   </Button>
@@ -321,6 +409,84 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
           )}
         </div>
       </div>
+
+      {/* Payment Dialog */}
+      {showPaymentDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>{t.processPayment}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">{t.paymentMethod}</label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">
+                      <div className="flex items-center space-x-2">
+                        <Banknote className="h-4 w-4" />
+                        <span>{t.cash}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="card">
+                      <div className="flex items-center space-x-2">
+                        <CreditCard className="h-4 w-4" />
+                        <span>{t.card}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded">
+                <div className="flex justify-between">
+                  <span>{t.total}:</span>
+                  <span className="font-bold">PKR {total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {paymentMethod === 'cash' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">{t.amountReceived}</label>
+                    <Input
+                      type="number"
+                      value={amountReceived}
+                      onChange={(e) => setAmountReceived(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {amountReceived && parseFloat(amountReceived) >= total && (
+                    <div className="bg-green-50 p-4 rounded">
+                      <div className="flex justify-between">
+                        <span>{t.change}:</span>
+                        <span className="font-bold text-green-600">PKR {change.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={confirmPayment} 
+                  className="flex-1"
+                  disabled={paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < total)}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {t.confirmPayment}
+                </Button>
+                <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+                  {t.cancel}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

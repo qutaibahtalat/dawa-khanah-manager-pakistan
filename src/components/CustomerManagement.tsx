@@ -13,11 +13,12 @@ import {
   Mail,
   MapPin,
   Calendar,
-  FileText,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  CreditCard
 } from 'lucide-react';
+import CustomerForm from './CustomerForm';
 
 interface CustomerManagementProps {
   isUrdu: boolean;
@@ -26,7 +27,39 @@ interface CustomerManagementProps {
 const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [customers, setCustomers] = useState([
+    {
+      id: 1,
+      name: 'Ahmed Khan',
+      phone: '+92-300-1234567',
+      email: 'ahmed.khan@email.com',
+      address: 'House 123, Street 5, Gulshan-e-Iqbal, Karachi',
+      cnic: '42101-1234567-1',
+      totalPurchases: 15000.00,
+      lastVisit: '2024-12-08',
+      notes: 'Regular customer, prefers generic medicines',
+      purchases: [
+        { date: '2024-12-08', amount: 850.00, items: 'Panadol, Brufen', invoice: 'INV-001' },
+        { date: '2024-11-25', amount: 1200.00, items: 'Vitamins, Cough syrup', invoice: 'INV-002' }
+      ]
+    },
+    {
+      id: 2,
+      name: 'Fatima Ali',
+      phone: '+92-321-9876543',
+      email: 'fatima.ali@email.com',
+      address: 'Flat 45, Block C, Clifton, Karachi',
+      cnic: '42101-9876543-2',
+      totalPurchases: 8500.00,
+      lastVisit: '2024-12-06',
+      notes: 'Diabetic patient, regular insulin purchases',
+      purchases: [
+        { date: '2024-12-06', amount: 2500.00, items: 'Insulin, Glucometer strips', invoice: 'INV-003' }
+      ]
+    }
+  ]);
 
   const text = {
     en: {
@@ -35,19 +68,17 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
       addCustomer: 'Add Customer',
       customerProfile: 'Customer Profile',
       purchaseHistory: 'Purchase History',
-      prescriptions: 'Prescriptions',
       name: 'Name',
       phone: 'Phone',
       email: 'Email',
       address: 'Address',
       cnic: 'CNIC',
-      dateOfBirth: 'Date of Birth',
       totalPurchases: 'Total Purchases',
       lastVisit: 'Last Visit',
-      loyaltyPoints: 'Loyalty Points',
       edit: 'Edit',
       delete: 'Delete',
-      view: 'View'
+      view: 'View',
+      notes: 'Notes'
     },
     ur: {
       title: 'کسٹمر منیجمنٹ',
@@ -55,70 +86,54 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
       addCustomer: 'کسٹمر شامل کریں',
       customerProfile: 'کسٹمر پروفائل',
       purchaseHistory: 'خریداری کی تاریخ',
-      prescriptions: 'نسخے',
       name: 'نام',
       phone: 'فون',
       email: 'ای میل',
       address: 'پتہ',
       cnic: 'شناختی کارڈ',
-      dateOfBirth: 'تاریخ پیدائش',
       totalPurchases: 'کل خریداری',
-      lastVisit: 'آخری دورہ',
-      loyaltyPoints: 'لائلٹی پوائنٹس',
+      lastVisit: 'آخری ملاقات',
       edit: 'تبدیل کریں',
       delete: 'حذف کریں',
-      view: 'دیکھیں'
+      view: 'دیکھیں',
+      notes: 'نوٹس'
     }
   };
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Sample customer data
-  const customers = [
-    {
-      id: 1,
-      name: 'Ahmed Ali',
-      phone: '+92-300-1234567',
-      email: 'ahmed@email.com',
-      address: 'House 123, Street 5, Lahore',
-      cnic: '35202-1234567-8',
-      dateOfBirth: '1985-05-15',
-      totalPurchases: 15420.50,
-      lastVisit: '2024-12-10',
-      loyaltyPoints: 154,
-      purchases: [
-        { date: '2024-12-10', amount: 250.00, items: 'Panadol, Augmentin' },
-        { date: '2024-11-25', amount: 450.00, items: 'Diabetes medicines' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Fatima Khan',
-      phone: '+92-301-9876543',
-      email: 'fatima@email.com',
-      address: 'Flat 45, Block A, Karachi',
-      cnic: '42101-9876543-2',
-      dateOfBirth: '1990-08-22',
-      totalPurchases: 8750.00,
-      lastVisit: '2024-12-08',
-      loyaltyPoints: 87,
-      purchases: [
-        { date: '2024-12-08', amount: 180.00, items: 'Vitamins, Pain relief' }
-      ]
-    }
-  ];
-
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.phone.includes(searchTerm) ||
-    customer.cnic.includes(searchTerm)
+    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleSaveCustomer = (customerData: any) => {
+    if (editingCustomer) {
+      setCustomers(customers.map(c => c.id === customerData.id ? customerData : c));
+    } else {
+      setCustomers([...customers, customerData]);
+    }
+    setEditingCustomer(null);
+  };
+
+  const handleEditCustomer = (customer: any) => {
+    setEditingCustomer(customer);
+    setShowForm(true);
+  };
+
+  const handleDeleteCustomer = (customerId: number) => {
+    setCustomers(customers.filter(c => c.id !== customerId));
+    if (selectedCustomer?.id === customerId) {
+      setSelectedCustomer(null);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-        <Button onClick={() => setShowAddForm(true)}>
+        <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
           {t.addCustomer}
         </Button>
@@ -173,10 +188,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
                       
                       <div className="flex items-center space-x-4 mt-4">
                         <Badge variant="secondary">
+                          <CreditCard className="h-3 w-3 mr-1" />
                           {t.totalPurchases}: PKR {customer.totalPurchases.toLocaleString()}
-                        </Badge>
-                        <Badge variant="outline">
-                          {t.loyaltyPoints}: {customer.loyaltyPoints}
                         </Badge>
                       </div>
                     </div>
@@ -185,10 +198,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
                       <Button size="sm" variant="outline" onClick={() => setSelectedCustomer(customer)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleEditCustomer(customer)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteCustomer(customer.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -209,7 +222,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
                 <Tabs defaultValue="profile">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="profile">Profile</TabsTrigger>
-                    <TabsTrigger value="history">History</TabsTrigger>
+                    <TabsTrigger value="history">Purchases</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="profile" className="space-y-4">
@@ -235,8 +248,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
                         <p>{selectedCustomer.address}</p>
                       </div>
                       <div>
-                        <label className="font-medium">{t.dateOfBirth}:</label>
-                        <p>{selectedCustomer.dateOfBirth}</p>
+                        <label className="font-medium">{t.notes}:</label>
+                        <p>{selectedCustomer.notes}</p>
                       </div>
                     </div>
                   </TabsContent>
@@ -247,8 +260,9 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
                         <div key={index} className="p-3 bg-gray-50 rounded-lg">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-medium">PKR {purchase.amount}</p>
+                              <p className="font-medium">PKR {purchase.amount.toLocaleString()}</p>
                               <p className="text-xs text-gray-600">{purchase.items}</p>
+                              <p className="text-xs text-blue-600">{purchase.invoice}</p>
                             </div>
                             <p className="text-xs text-gray-500">{purchase.date}</p>
                           </div>
@@ -262,6 +276,18 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
           </div>
         )}
       </div>
+
+      {showForm && (
+        <CustomerForm
+          isUrdu={isUrdu}
+          onClose={() => {
+            setShowForm(false);
+            setEditingCustomer(null);
+          }}
+          onSave={handleSaveCustomer}
+          customer={editingCustomer}
+        />
+      )}
     </div>
   );
 };
