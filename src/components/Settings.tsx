@@ -4,19 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Settings as SettingsIcon, 
+  Save, 
   Building, 
-  Palette, 
-  Database, 
-  Shield,
+  User, 
+  Bell, 
+  Shield, 
   Printer,
+  Database,
   Globe,
-  DollarSign
+  Settings as SettingsIcon
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface SettingsProps {
   isUrdu: boolean;
@@ -24,187 +27,170 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
-  const [pharmacySettings, setPharmacySettings] = useState({
-    name: 'City Pharmacy',
-    address: '123 Main Street, Karachi',
-    phone: '+92-21-1234567',
-    email: 'info@citypharmacy.com',
-    license: 'PH-2024-001'
+  const { toast } = useToast();
+  const [settings, setSettings] = useState({
+    companyName: 'PharmaCare',
+    companyAddress: 'Main Boulevard, Gulshan-e-Iqbal, Karachi',
+    companyPhone: '+92-21-1234567',
+    companyEmail: 'info@pharmacare.com',
+    taxRate: '17',
+    currency: 'PKR',
+    dateFormat: 'dd/mm/yyyy',
+    notifications: true,
+    autoBackup: true,
+    printReceipts: true,
+    barcodeScanning: true,
+    language: isUrdu ? 'ur' : 'en'
   });
 
   const text = {
     en: {
       title: 'Settings',
-      pharmacyInfo: 'Pharmacy Information',
-      appearance: 'Appearance',
-      backup: 'Backup & Restore',
-      security: 'Security',
-      printing: 'Printing',
-      pharmacy: 'Pharmacy',
-      pharmacyName: 'Pharmacy Name',
-      address: 'Address',
-      phone: 'Phone Number',
-      email: 'Email',
-      license: 'License Number',
-      language: 'Language',
-      currency: 'Currency',
+      company: 'Company Settings',
+      system: 'System Settings',
+      notifications: 'Notifications',
+      backup: 'Backup & Security',
+      companyName: 'Company Name',
+      companyAddress: 'Company Address',
+      companyPhone: 'Phone Number',
+      companyEmail: 'Email Address',
       taxRate: 'Tax Rate (%)',
-      darkMode: 'Dark Mode',
+      currency: 'Currency',
+      dateFormat: 'Date Format',
+      language: 'Language',
+      enableNotifications: 'Enable Notifications',
       autoBackup: 'Auto Backup',
-      backupLocation: 'Backup Location',
+      printReceipts: 'Auto Print Receipts',
+      barcodeScanning: 'Enable Barcode Scanning',
       save: 'Save Settings',
-      selectLanguage: 'Select Language',
-      selectCurrency: 'Select Currency'
+      english: 'English',
+      urdu: 'اردو',
+      saved: 'Settings saved successfully!'
     },
     ur: {
       title: 'سیٹنگز',
-      pharmacyInfo: 'فارمیسی کی معلومات',
-      appearance: 'ظاہری شکل',
-      backup: 'بیک اپ اور بحالی',
-      security: 'سیکیورٹی',
-      printing: 'پرنٹنگ',
-      pharmacy: 'فارمیسی',
-      pharmacyName: 'فارمیسی کا نام',
-      address: 'پتہ',
-      phone: 'فون نمبر',
-      email: 'ای میل',
-      license: 'لائسنس نمبر',
-      language: 'زبان',
-      currency: 'کرنسی',
+      company: 'کمپنی کی سیٹنگز',
+      system: 'سسٹم کی سیٹنگز',
+      notifications: 'اطلاعات',
+      backup: 'بیک اپ اور سیکیورٹی',
+      companyName: 'کمپنی کا نام',
+      companyAddress: 'کمپنی کا پتہ',
+      companyPhone: 'فون نمبر',
+      companyEmail: 'ای میل ایڈریس',
       taxRate: 'ٹیکس کی شرح (%)',
-      darkMode: 'ڈارک موڈ',
+      currency: 'کرنسی',
+      dateFormat: 'تاریخ کا فارمیٹ',
+      language: 'زبان',
+      enableNotifications: 'اطلاعات فعال کریں',
       autoBackup: 'خودکار بیک اپ',
-      backupLocation: 'بیک اپ کا مقام',
+      printReceipts: 'خودکار رسید پرنٹ',
+      barcodeScanning: 'بار کوڈ اسکیننگ فعال کریں',
       save: 'سیٹنگز محفوظ کریں',
-      selectLanguage: 'زبان منتخب کریں',
-      selectCurrency: 'کرنسی منتخب کریں'
+      english: 'English',
+      urdu: 'اردو',
+      saved: 'سیٹنگز کامیابی سے محفوظ ہوئیں!'
     }
   };
 
   const t = isUrdu ? text.ur : text.en;
 
+  const handleSave = () => {
+    // Save settings logic here
+    toast({
+      title: t.saved,
+      description: "All settings have been updated successfully.",
+    });
+  };
+
+  const handleLanguageChange = (language: string) => {
+    setSettings({ ...settings, language });
+    setIsUrdu(language === 'ur');
+  };
+
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center space-x-3">
+        <SettingsIcon className="h-8 w-8 text-gray-600" />
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-        <Button>
-          <SettingsIcon className="h-4 w-4 mr-2" />
-          {t.save}
-        </Button>
       </div>
 
-      {/* Settings Tabs */}
-      <Tabs defaultValue="pharmacy" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="pharmacy" className="flex items-center space-x-2">
-            <Building className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.pharmacy}</span>
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center space-x-2">
-            <Palette className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.appearance}</span>
-          </TabsTrigger>
-          <TabsTrigger value="backup" className="flex items-center space-x-2">
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.backup}</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center space-x-2">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.security}</span>
-          </TabsTrigger>
-          <TabsTrigger value="printing" className="flex items-center space-x-2">
-            <Printer className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.printing}</span>
-          </TabsTrigger>
+      <Tabs defaultValue="company" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="company">{t.company}</TabsTrigger>
+          <TabsTrigger value="system">{t.system}</TabsTrigger>
+          <TabsTrigger value="notifications">{t.notifications}</TabsTrigger>
+          <TabsTrigger value="backup">{t.backup}</TabsTrigger>
         </TabsList>
 
-        {/* Pharmacy Information */}
-        <TabsContent value="pharmacy">
+        <TabsContent value="company">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Building className="h-5 w-5" />
-                <span>{t.pharmacyInfo}</span>
+                <span>{t.company}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pharmacyName">{t.pharmacyName}</Label>
+                <div>
+                  <Label>{t.companyName}</Label>
                   <Input
-                    id="pharmacyName"
-                    value={pharmacySettings.name}
-                    onChange={(e) => setPharmacySettings({...pharmacySettings, name: e.target.value})}
+                    value={settings.companyName}
+                    onChange={(e) => setSettings({...settings, companyName: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="license">{t.license}</Label>
+                <div>
+                  <Label>{t.companyPhone}</Label>
                   <Input
-                    id="license"
-                    value={pharmacySettings.license}
-                    onChange={(e) => setPharmacySettings({...pharmacySettings, license: e.target.value})}
+                    value={settings.companyPhone}
+                    onChange={(e) => setSettings({...settings, companyPhone: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">{t.address}</Label>
-                  <Input
-                    id="address"
-                    value={pharmacySettings.address}
-                    onChange={(e) => setPharmacySettings({...pharmacySettings, address: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">{t.phone}</Label>
-                  <Input
-                    id="phone"
-                    value={pharmacySettings.phone}
-                    onChange={(e) => setPharmacySettings({...pharmacySettings, phone: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">{t.email}</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={pharmacySettings.email}
-                    onChange={(e) => setPharmacySettings({...pharmacySettings, email: e.target.value})}
-                  />
-                </div>
+              </div>
+              
+              <div>
+                <Label>{t.companyEmail}</Label>
+                <Input
+                  type="email"
+                  value={settings.companyEmail}
+                  onChange={(e) => setSettings({...settings, companyEmail: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <Label>{t.companyAddress}</Label>
+                <Textarea
+                  value={settings.companyAddress}
+                  onChange={(e) => setSettings({...settings, companyAddress: e.target.value})}
+                />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Appearance Settings */}
-        <TabsContent value="appearance">
+        <TabsContent value="system">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Palette className="h-5 w-5" />
-                <span>{t.appearance}</span>
+                <SettingsIcon className="h-5 w-5" />
+                <span>{t.system}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="language">{t.language}</Label>
-                  <Select value={isUrdu ? 'ur' : 'en'} onValueChange={(value) => setIsUrdu(value === 'ur')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t.selectLanguage} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="ur">اردو (Urdu)</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>{t.taxRate}</Label>
+                  <Input
+                    type="number"
+                    value={settings.taxRate}
+                    onChange={(e) => setSettings({...settings, taxRate: e.target.value})}
+                  />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="currency">{t.currency}</Label>
-                  <Select defaultValue="PKR">
+                <div>
+                  <Label>{t.currency}</Label>
+                  <Select value={settings.currency} onValueChange={(value) => setSettings({...settings, currency: value})}>
                     <SelectTrigger>
-                      <SelectValue placeholder={t.selectCurrency} />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PKR">PKR - Pakistani Rupee</SelectItem>
@@ -213,99 +199,111 @@ const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="taxRate">{t.taxRate}</Label>
-                  <Input
-                    id="taxRate"
-                    type="number"
-                    defaultValue="17"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                  />
+                <div>
+                  <Label>{t.dateFormat}</Label>
+                  <Select value={settings.dateFormat} onValueChange={(value) => setSettings({...settings, dateFormat: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
+                      <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
+                      <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="darkMode">{t.darkMode}</Label>
-                    <p className="text-sm text-gray-600">Toggle dark theme</p>
-                  </div>
-                  <Switch id="darkMode" />
-                </div>
+              <div>
+                <Label>{t.language}</Label>
+                <Select value={settings.language} onValueChange={handleLanguageChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">{t.english}</SelectItem>
+                    <SelectItem value="ur">{t.urdu}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Backup Settings */}
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Bell className="h-5 w-5" />
+                <span>{t.notifications}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>{t.enableNotifications}</Label>
+                <Switch
+                  checked={settings.notifications}
+                  onCheckedChange={(checked) => setSettings({...settings, notifications: checked})}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>{t.printReceipts}</Label>
+                <Switch
+                  checked={settings.printReceipts}
+                  onCheckedChange={(checked) => setSettings({...settings, printReceipts: checked})}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>{t.barcodeScanning}</Label>
+                <Switch
+                  checked={settings.barcodeScanning}
+                  onCheckedChange={(checked) => setSettings({...settings, barcodeScanning: checked})}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="backup">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Database className="h-5 w-5" />
+                <Shield className="h-5 w-5" />
                 <span>{t.backup}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="autoBackup">{t.autoBackup}</Label>
-                  <p className="text-sm text-gray-600">Automatically backup data daily</p>
-                </div>
-                <Switch id="autoBackup" defaultChecked />
+                <Label>{t.autoBackup}</Label>
+                <Switch
+                  checked={settings.autoBackup}
+                  onCheckedChange={(checked) => setSettings({...settings, autoBackup: checked})}
+                />
               </div>
-
+              
               <div className="space-y-2">
-                <Label htmlFor="backupLocation">{t.backupLocation}</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="backupLocation"
-                    defaultValue="C:\PharmacyBackups"
-                    className="flex-1"
-                  />
-                  <Button variant="outline">Browse</Button>
-                </div>
+                <Button variant="outline" className="w-full">
+                  <Database className="h-4 w-4 mr-2" />
+                  Create Manual Backup
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <Database className="h-4 w-4 mr-2" />
+                  Restore from Backup
+                </Button>
               </div>
-
-              <div className="flex space-x-2">
-                <Button>Create Backup Now</Button>
-                <Button variant="outline">Restore from Backup</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Security Settings */}
-        <TabsContent value="security">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Shield className="h-5 w-5" />
-                <span>{t.security}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-gray-600 py-8">Security settings coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Printing Settings */}
-        <TabsContent value="printing">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Printer className="h-5 w-5" />
-                <span>{t.printing}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-gray-600 py-8">Printing settings coming soon...</p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} className="px-8">
+          <Save className="h-4 w-4 mr-2" />
+          {t.save}
+        </Button>
+      </div>
     </div>
   );
 };

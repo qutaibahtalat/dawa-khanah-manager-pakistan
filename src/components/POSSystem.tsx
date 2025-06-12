@@ -33,6 +33,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [amountReceived, setAmountReceived] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   const text = {
@@ -62,7 +63,9 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       confirmPayment: 'Confirm Payment',
       cancel: 'Cancel',
       paymentSuccessful: 'Payment successful!',
-      receiptPrinted: 'Receipt printed successfully!'
+      receiptPrinted: 'Receipt printed successfully!',
+      processing: 'Processing...',
+      saleCompleted: 'Sale completed successfully!'
     },
     ur: {
       title: 'پوائنٹ آف سیل',
@@ -90,7 +93,9 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       confirmPayment: 'ادائیگی کی تصدیق',
       cancel: 'منسوخ',
       paymentSuccessful: 'ادائیگی کامیاب!',
-      receiptPrinted: 'رسید کامیابی سے پرنٹ ہوئی!'
+      receiptPrinted: 'رسید کامیابی سے پرنٹ ہوئی!',
+      processing: 'پروسیسنگ...',
+      saleCompleted: 'فروخت کامیابی سے مکمل!'
     }
   };
 
@@ -167,63 +172,117 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discount = 0; // Can be implemented with discount logic
-  const tax = subtotal * 0.17; // 17% sales tax (example for Pakistan)
+  const discount = 0;
+  const tax = subtotal * 0.17;
   const total = subtotal - discount + tax;
   const change = parseFloat(amountReceived) - total;
 
   const handleProcessPayment = () => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Cart is empty. Please add items before processing payment.",
+        variant: "destructive"
+      });
+      return;
+    }
     setShowPaymentDialog(true);
   };
 
-  const confirmPayment = () => {
-    // Process payment logic here
-    toast({
-      title: t.paymentSuccessful,
-      description: `Total: PKR ${total.toFixed(2)}, Method: ${paymentMethod}`,
-    });
+  const confirmPayment = async () => {
+    setIsProcessing(true);
     
-    setShowPaymentDialog(false);
-    setCartItems([]);
-    setCustomerInfo({ name: '', phone: '' });
-    setAmountReceived('');
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast({
+        title: t.paymentSuccessful,
+        description: `Total: PKR ${total.toFixed(2)}, Method: ${paymentMethod}`,
+      });
+      
+      // Auto print receipt after successful payment
+      setTimeout(() => {
+        printReceipt();
+      }, 500);
+      
+      setShowPaymentDialog(false);
+      setCartItems([]);
+      setCustomerInfo({ name: '', phone: '' });
+      setAmountReceived('');
+      
+      toast({
+        title: t.saleCompleted,
+        description: "Transaction completed and receipt printed.",
+      });
+      
+    } catch (error) {
+      toast({
+        title: "Payment Failed",
+        description: "There was an error processing the payment.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const printReceipt = () => {
     const receiptContent = `
-PharmaCare Receipt
-==================
-Date: ${new Date().toLocaleString()}
-Customer: ${customerInfo.name || 'Walk-in Customer'}
-Phone: ${customerInfo.phone || 'N/A'}
-
-Items:
-${cartItems.map(item => 
-  `${item.name} x${item.quantity} @ PKR ${item.price} = PKR ${(item.price * item.quantity).toFixed(2)}`
-).join('\n')}
-
-Subtotal: PKR ${subtotal.toFixed(2)}
-Tax (17%): PKR ${tax.toFixed(2)}
-Total: PKR ${total.toFixed(2)}
-Payment: ${paymentMethod.toUpperCase()}
-${paymentMethod === 'cash' ? `Received: PKR ${amountReceived}\nChange: PKR ${change.toFixed(2)}` : ''}
-
-Thank you for your purchase!
-==================
+    
+    
+            PharmaCare Receipt
+    ==========================================
+    Date: ${new Date().toLocaleString()}
+    Customer: ${customerInfo.name || 'Walk-in Customer'}
+    Phone: ${customerInfo.phone || 'N/A'}
+    
+    Items:
+    ==========================================
+    ${cartItems.map(item => 
+      `${item.name.padEnd(20)} x${item.quantity.toString().padStart(2)} @ PKR ${item.price.toString().padStart(6)} = PKR ${(item.price * item.quantity).toFixed(2).padStart(8)}`
+    ).join('\n')}
+    
+    ==========================================
+    Subtotal:                   PKR ${subtotal.toFixed(2).padStart(8)}
+    Tax (17%):                  PKR ${tax.toFixed(2).padStart(8)}
+    Total:                      PKR ${total.toFixed(2).padStart(8)}
+    
+    Payment Method: ${paymentMethod.toUpperCase()}
+    ${paymentMethod === 'cash' ? `Amount Received:            PKR ${amountReceived.padStart(8)}\nChange:                     PKR ${change.toFixed(2).padStart(8)}` : ''}
+    
+    ==========================================
+              Thank you for your purchase!
+                  Visit us again soon!
+    ==========================================
+    
+    
     `;
 
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
         <html>
-          <head><title>Receipt</title></head>
-          <body style="font-family: monospace; white-space: pre;">
+          <head>
+            <title>PharmaCare Receipt</title>
+            <style>
+              body { 
+                font-family: 'Courier New', monospace; 
+                white-space: pre; 
+                font-size: 12px;
+                margin: 0;
+                padding: 20px;
+              }
+              @media print {
+                body { margin: 0; padding: 10px; }
+              }
+            </style>
+          </head>
+          <body onload="window.print(); window.close();">
             ${receiptContent}
           </body>
         </html>
       `);
-      printWindow.print();
-      printWindow.close();
     }
 
     toast({
@@ -395,9 +454,13 @@ Thank you for your purchase!
                 </div>
                 
                 <div className="space-y-2 mt-4">
-                  <Button className="w-full" onClick={handleProcessPayment}>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleProcessPayment}
+                    disabled={isProcessing}
+                  >
                     <Receipt className="h-4 w-4 mr-2" />
-                    {t.processPayment}
+                    {isProcessing ? t.processing : t.processPayment}
                   </Button>
                   <Button variant="outline" className="w-full" onClick={printReceipt}>
                     <Printer className="h-4 w-4 mr-2" />
@@ -474,12 +537,19 @@ Thank you for your purchase!
                 <Button 
                   onClick={confirmPayment} 
                   className="flex-1"
-                  disabled={paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < total)}
+                  disabled={
+                    isProcessing || 
+                    (paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < total))
+                  }
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  {t.confirmPayment}
+                  {isProcessing ? t.processing : t.confirmPayment}
                 </Button>
-                <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPaymentDialog(false)}
+                  disabled={isProcessing}
+                >
                   {t.cancel}
                 </Button>
               </div>
