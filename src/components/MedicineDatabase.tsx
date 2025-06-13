@@ -1,257 +1,317 @@
 
 import React, { useState, useEffect } from 'react';
+import { Search, Download, Upload, Filter, BarChart3, AlertTriangle, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { generateMedicineDatabase } from '../utils/medicineDatabase';
-import { initializeDatabase } from '../utils/databaseSeeder';
-import { Search, Package, Database, Download, RefreshCw } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { generateMedicineDatabase, searchMedicines, getLowStockMedicines, getExpiringMedicines, Medicine } from '../utils/medicineDatabase';
+import { reportExporter } from '../utils/reportExporter';
 
 interface MedicineDatabaseProps {
   isUrdu: boolean;
 }
 
 const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
-  const [medicines, setMedicines] = useState<any[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [filteredMedicines, setFilteredMedicines] = useState<Medicine[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50);
+  const itemsPerPage = 50;
 
   const text = {
-    en: {
-      title: '20K Medicine Database',
-      searchPlaceholder: 'Search medicines by name, generic name, or manufacturer...',
-      loadDatabase: 'Load Full Database',
-      initializeData: 'Initialize Complete Data',
-      exportData: 'Export to CSV',
-      totalMedicines: 'Total Medicines',
-      name: 'Name',
-      genericName: 'Generic Name',
-      manufacturer: 'Manufacturer',
-      category: 'Category',
-      price: 'Price',
-      stock: 'Stock',
-      loading: 'Loading...',
-      noResults: 'No medicines found',
-      page: 'Page'
-    },
-    ur: {
-      title: '20 ہزار ادویات کا ڈیٹابیس',
-      searchPlaceholder: 'نام، جنرک نام، یا کمپنی سے تلاش کریں...',
-      loadDatabase: 'مکمل ڈیٹابیس لوڈ کریں',
-      initializeData: 'مکمل ڈیٹا شروع کریں',
-      exportData: 'CSV میں ایکسپورٹ',
-      totalMedicines: 'کل ادویات',
-      name: 'نام',
-      genericName: 'جنرک نام',
-      manufacturer: 'کمپنی',
-      category: 'قسم',
-      price: 'قیمت',
-      stock: 'اسٹاک',
-      loading: 'لوڈ ہو رہا ہے...',
-      noResults: 'کوئی دوا نہیں ملی',
-      page: 'صفحہ'
-    }
+    title: isUrdu ? 'دوائیں کا ڈیٹابیس' : 'Medicine Database',
+    search: isUrdu ? 'تلاش کریں...' : 'Search medicines...',
+    category: isUrdu ? 'کیٹگری' : 'Category',
+    all: isUrdu ? 'تمام' : 'All',
+    lowStock: isUrdu ? 'کم اسٹاک' : 'Low Stock',
+    expiring: isUrdu ? 'ختم ہونے والی' : 'Expiring Soon',
+    export: isUrdu ? 'ایکسپورٹ' : 'Export',
+    import: isUrdu ? 'امپورٹ' : 'Import',
+    generate: isUrdu ? 'ڈیٹابیس بنائیں' : 'Generate Database',
+    name: isUrdu ? 'نام' : 'Name',
+    generic: isUrdu ? 'جینرک' : 'Generic',
+    manufacturer: isUrdu ? 'بنانے والا' : 'Manufacturer',
+    batch: isUrdu ? 'بیچ' : 'Batch',
+    expiry: isUrdu ? 'ختم ہونے کی تاریخ' : 'Expiry Date',
+    stock: isUrdu ? 'اسٹاک' : 'Stock',
+    price: isUrdu ? 'قیمت' : 'Price',
+    status: isUrdu ? 'حالت' : 'Status',
+    inStock: isUrdu ? 'دستیاب' : 'In Stock',
+    outOfStock: isUrdu ? 'ختم' : 'Out of Stock'
   };
 
-  const t = isUrdu ? text.ur : text.en;
-
-  const loadMedicineDatabase = async () => {
-    setLoading(true);
-    try {
-      const medicineData = generateMedicineDatabase(20000);
-      setMedicines(medicineData);
-      localStorage.setItem('medicine_database', JSON.stringify(medicineData));
-      console.log('Loaded 20,000 medicines successfully');
-    } catch (error) {
-      console.error('Error loading medicine database:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const initializeCompleteDatabase = async () => {
-    setLoading(true);
-    try {
-      await initializeDatabase();
-      // Load medicines from localStorage after seeding
-      const storedMedicines = localStorage.getItem('pharmacy_medicines');
-      if (storedMedicines) {
-        setMedicines(JSON.parse(storedMedicines));
-      }
-      console.log('Complete database initialized successfully');
-    } catch (error) {
-      console.error('Error initializing database:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportToCSV = () => {
-    if (medicines.length === 0) return;
-
-    const headers = ['Name', 'Generic Name', 'Manufacturer', 'Category', 'Purchase Price', 'Sale Price', 'Stock', 'Barcode'];
-    const csvContent = [
-      headers.join(','),
-      ...medicines.map(med => [
-        med.name,
-        med.genericName,
-        med.manufacturer,
-        med.category,
-        med.purchasePrice,
-        med.salePrice,
-        med.stock,
-        med.barcode
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'medicine_database.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Load existing data on component mount
   useEffect(() => {
-    const storedMedicines = localStorage.getItem('medicine_database') || localStorage.getItem('pharmacy_medicines');
-    if (storedMedicines) {
-      setMedicines(JSON.parse(storedMedicines));
-    }
+    loadMedicineDatabase();
   }, []);
 
-  const filteredMedicines = medicines.filter(medicine =>
-    medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    medicine.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    medicine.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    filterMedicines();
+  }, [medicines, searchTerm, selectedCategory]);
+
+  const loadMedicineDatabase = () => {
+    setLoading(true);
+    
+    // Check if database exists in localStorage
+    const storedMedicines = localStorage.getItem('medicine_database');
+    if (storedMedicines) {
+      const parsedMedicines = JSON.parse(storedMedicines);
+      setMedicines(parsedMedicines);
+    } else {
+      // Generate new database
+      generateDatabase();
+    }
+    
+    setLoading(false);
+  };
+
+  const generateDatabase = () => {
+    const newDatabase = generateMedicineDatabase(20000); // Generate 20k medicines
+    setMedicines(newDatabase);
+    localStorage.setItem('medicine_database', JSON.stringify(newDatabase));
+  };
+
+  const filterMedicines = () => {
+    let filtered = medicines;
+
+    if (searchTerm) {
+      filtered = searchMedicines(filtered, searchTerm);
+    }
+
+    if (selectedCategory !== 'all') {
+      if (selectedCategory === 'low-stock') {
+        filtered = getLowStockMedicines(filtered, 50);
+      } else if (selectedCategory === 'expiring') {
+        filtered = getExpiringMedicines(filtered, 90);
+      } else {
+        filtered = filtered.filter(med => med.category === selectedCategory);
+      }
+    }
+
+    setFilteredMedicines(filtered);
+    setCurrentPage(1);
+  };
+
+  const handleExport = () => {
+    const exportData = reportExporter.exportInventoryReport(filteredMedicines);
+    reportExporter.exportToExcel(exportData);
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        // Handle file import (simplified for demo)
+        console.log('Importing file:', file.name);
+      }
+    };
+    input.click();
+  };
+
+  const getStockStatus = (quantity: number) => {
+    if (quantity === 0) return { label: text.outOfStock, color: 'destructive' };
+    if (quantity <= 20) return { label: text.lowStock, color: 'secondary' };
+    return { label: text.inStock, color: 'default' };
+  };
+
+  const categories = [
+    'Analgesic', 'Antibiotic', 'Antacid', 'Antihistamine', 'Antidepressant',
+    'Antidiabetic', 'Antihypertensive', 'Antiviral', 'Antiseptic', 'Antipyretic'
+  ];
+
+  const paginatedMedicines = filteredMedicines.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const totalPages = Math.ceil(filteredMedicines.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedMedicines = filteredMedicines.slice(startIndex, startIndex + itemsPerPage);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">{isUrdu ? 'لوڈ ہو رہا ہے...' : 'Loading...'}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-        <div className="flex space-x-2">
-          <Button onClick={loadMedicineDatabase} disabled={loading}>
-            <Database className="h-4 w-4 mr-2" />
-            {t.loadDatabase}
+        <h1 className="text-3xl font-bold">{text.title}</h1>
+        <div className="flex gap-2">
+          <Button onClick={generateDatabase} variant="outline">
+            <Package className="h-4 w-4 mr-2" />
+            {text.generate}
           </Button>
-          <Button onClick={initializeCompleteDatabase} disabled={loading}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            {t.initializeData}
+          <Button onClick={handleImport} variant="outline">
+            <Upload className="h-4 w-4 mr-2" />
+            {text.import}
           </Button>
-          <Button onClick={exportToCSV} disabled={medicines.length === 0}>
+          <Button onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
-            {t.exportData}
+            {text.export}
           </Button>
         </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center space-x-2">
-              <Package className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-2xl font-bold text-blue-600">{medicines.length.toLocaleString()}</p>
-                <p className="text-sm text-gray-600">{t.totalMedicines}</p>
-              </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{isUrdu ? 'کل دوائیں' : 'Total Medicines'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{medicines.length.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{text.lowStock}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {getLowStockMedicines(medicines, 50).length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{text.expiring}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {getExpiringMedicines(medicines, 90).length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{isUrdu ? 'کل قیمت' : 'Total Value'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              PKR {medicines.reduce((sum, med) => sum + (med.quantity * med.salePrice), 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-        <Input
-          placeholder={t.searchPlaceholder}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {loading ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p>{t.loading}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Medicine List */}
-          <div className="grid grid-cols-1 gap-4">
-            {paginatedMedicines.length > 0 ? (
-              paginatedMedicines.map((medicine) => (
-                <Card key={medicine.id} className="hover:shadow-md transition-all">
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                      <div className="md:col-span-2">
-                        <h3 className="font-semibold text-lg">{medicine.name}</h3>
-                        <p className="text-sm text-gray-600">{medicine.genericName}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{medicine.manufacturer}</p>
-                        <p className="text-xs text-gray-500">{t.manufacturer}</p>
-                      </div>
-                      <div>
-                        <Badge variant="outline">{medicine.category}</Badge>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">PKR {medicine.salePrice}</p>
-                        <p className="text-xs text-gray-500">{t.price}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{medicine.stock}</p>
-                        <p className="text-xs text-gray-500">{t.stock}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-gray-600">{t.noResults}</p>
-                </CardContent>
-              </Card>
-            )}
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder={text.search}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={text.category} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{text.all}</SelectItem>
+                <SelectItem value="low-stock">{text.lowStock}</SelectItem>
+                <SelectItem value="expiring">{text.expiring}</SelectItem>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </CardContent>
+      </Card>
 
+      {/* Medicine Table */}
+      <Card>
+        <CardContent className="pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{text.name}</TableHead>
+                <TableHead>{text.generic}</TableHead>
+                <TableHead>{text.manufacturer}</TableHead>
+                <TableHead>{text.batch}</TableHead>
+                <TableHead>{text.expiry}</TableHead>
+                <TableHead>{text.stock}</TableHead>
+                <TableHead>{text.price}</TableHead>
+                <TableHead>{text.status}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedMedicines.map((medicine) => {
+                const status = getStockStatus(medicine.quantity);
+                const isExpiring = getExpiringMedicines([medicine], 90).length > 0;
+                
+                return (
+                  <TableRow key={medicine.id}>
+                    <TableCell className="font-medium">
+                      <div>
+                        <div>{medicine.name}</div>
+                        {isExpiring && (
+                          <div className="flex items-center text-red-500 text-sm mt-1">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {isUrdu ? 'جلد ختم' : 'Expiring Soon'}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{medicine.genericName}</TableCell>
+                    <TableCell>{medicine.manufacturer}</TableCell>
+                    <TableCell>{medicine.batchNo}</TableCell>
+                    <TableCell>{new Date(medicine.expiryDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{medicine.quantity}</TableCell>
+                    <TableCell>PKR {medicine.salePrice}</TableCell>
+                    <TableCell>
+                      <Badge variant={status.color as any}>{status.label}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center space-x-4">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            <div className="flex justify-center mt-4 gap-2">
+              <Button 
+                variant="outline" 
                 disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
               >
-                Previous
+                {isUrdu ? 'پچھلا' : 'Previous'}
               </Button>
-              <span className="text-sm text-gray-600">
-                {t.page} {currentPage} of {totalPages}
+              <span className="flex items-center px-4">
+                {currentPage} of {totalPages}
               </span>
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              <Button 
+                variant="outline" 
                 disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(currentPage + 1)}
               >
-                Next
+                {isUrdu ? 'اگلا' : 'Next'}
               </Button>
             </div>
           )}
-        </>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

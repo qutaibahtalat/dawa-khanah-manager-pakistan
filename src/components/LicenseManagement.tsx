@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, Clock, AlertTriangle, CheckCircle, Key, Building, CreditCard } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Shield, AlertTriangle, CheckCircle, CreditCard, Download, Users, Building } from 'lucide-react';
 import { licenseManager, License, LicenseValidationResult } from '../utils/licenseManager';
 
 interface LicenseManagementProps {
@@ -17,264 +18,444 @@ interface LicenseManagementProps {
 
 const LicenseManagement: React.FC<LicenseManagementProps> = ({ isUrdu }) => {
   const [licenses, setLicenses] = useState<License[]>([]);
-  const [validation, setValidation] = useState<LicenseValidationResult | null>(null);
-  const [newBranchName, setNewBranchName] = useState('');
-  const [newBranchPlan, setNewBranchPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
-
-  useEffect(() => {
-    loadLicenses();
-    validateCurrentLicense();
-  }, []);
-
-  const loadLicenses = () => {
-    setLicenses(licenseManager.getAllLicenses());
-  };
-
-  const validateCurrentLicense = () => {
-    const result = licenseManager.validateLicense();
-    setValidation(result);
-  };
-
-  const handleCreateLicense = () => {
-    if (!newBranchName) return;
-    
-    const branchId = newBranchName.toLowerCase().replace(/\s+/g, '_');
-    licenseManager.createLicenseForBranch(branchId, newBranchName, newBranchPlan);
-    loadLicenses();
-    setNewBranchName('');
-  };
-
-  const handleRenewLicense = (licenseId: string, plan: License['plan']) => {
-    licenseManager.renewLicense(licenseId, plan);
-    loadLicenses();
-    validateCurrentLicense();
-  };
-
-  const handleRevokeLicense = (licenseId: string) => {
-    licenseManager.revokeLicense(licenseId);
-    loadLicenses();
-  };
-
-  const getStatusColor = (status: License['status']) => {
-    switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'expired': return 'bg-red-500';
-      case 'suspended': return 'bg-gray-500';
-      case 'grace_period': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getPlanPrice = (plan: License['plan']) => {
-    switch (plan) {
-      case 'monthly': return '₨5,000/month';
-      case 'yearly': return '₨40,000/year';
-      case 'lifetime': return '₨100,000 one-time';
-      default: return '';
-    }
-  };
+  const [currentLicense, setCurrentLicense] = useState<License | null>(null);
+  const [validationResult, setValidationResult] = useState<LicenseValidationResult | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showRenewalDialog, setShowRenewalDialog] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
+  const [branchName, setBranchName] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const text = {
     title: isUrdu ? 'لائسنس منیجمنٹ' : 'License Management',
+    overview: isUrdu ? 'جائزہ' : 'Overview',
     currentLicense: isUrdu ? 'موجودہ لائسنس' : 'Current License',
     allLicenses: isUrdu ? 'تمام لائسنس' : 'All Licenses',
-    createNew: isUrdu ? 'نیا لائسنس' : 'Create New',
+    createLicense: isUrdu ? 'نیا لائسنس بنائیں' : 'Create New License',
+    renewLicense: isUrdu ? 'لائسنس تجدید' : 'Renew License',
+    exportReport: isUrdu ? 'رپورٹ ایکسپورٹ' : 'Export Report',
     status: isUrdu ? 'حالت' : 'Status',
-    plan: isUrdu ? 'پلان' : 'Plan',
-    expiry: isUrdu ? 'ختم ہونے کی تاریخ' : 'Expiry Date',
-    features: isUrdu ? 'خصوصیات' : 'Features',
-    branchName: isUrdu ? 'برانچ کا نام' : 'Branch Name',
-    selectPlan: isUrdu ? 'پلان منتخب کریں' : 'Select Plan',
-    create: isUrdu ? 'بنائیں' : 'Create',
-    renew: isUrdu ? 'تجدید' : 'Renew',
-    revoke: isUrdu ? 'منسوخ' : 'Revoke',
     active: isUrdu ? 'فعال' : 'Active',
     expired: isUrdu ? 'ختم' : 'Expired',
-    gracePeriod: isUrdu ? 'مہلت کی مدت' : 'Grace Period',
-    suspended: isUrdu ? 'معطل' : 'Suspended',
+    suspended: isUrdu ? 'منعقد' : 'Suspended',
+    gracePeriod: isUrdu ? 'رحمت کی مدت' : 'Grace Period',
+    plan: isUrdu ? 'پلان' : 'Plan',
     monthly: isUrdu ? 'ماہانہ' : 'Monthly',
     yearly: isUrdu ? 'سالانہ' : 'Yearly',
-    lifetime: isUrdu ? 'تاحیات' : 'Lifetime',
-    validUntil: isUrdu ? 'درست تا' : 'Valid Until',
+    lifetime: isUrdu ? 'زندگی بھر' : 'Lifetime',
+    expiryDate: isUrdu ? 'ختم ہونے کی تاریخ' : 'Expiry Date',
+    branchName: isUrdu ? 'برانچ کا نام' : 'Branch Name',
+    licenseKey: isUrdu ? 'لائسنس کی' : 'License Key',
+    features: isUrdu ? 'خصوصیات' : 'Features',
+    pricing: isUrdu ? 'قیمت' : 'Pricing',
+    create: isUrdu ? 'بنائیں' : 'Create',
+    renew: isUrdu ? 'تجدید' : 'Renew',
+    cancel: isUrdu ? 'منسوخ' : 'Cancel',
+    save: isUrdu ? 'محفوظ' : 'Save',
     daysRemaining: isUrdu ? 'باقی دن' : 'Days Remaining',
-    licenseKey: isUrdu ? 'لائسنس کلید' : 'License Key',
-    hardwareId: isUrdu ? 'ہارڈویئر ID' : 'Hardware ID'
+    maxUsers: isUrdu ? 'زیادہ سے زیادہ صارفین' : 'Max Users',
+    maxBranches: isUrdu ? 'زیادہ سے زیادہ برانچز' : 'Max Branches'
   };
 
+  const planDetails = {
+    monthly: {
+      name: text.monthly,
+      price: '₨ 5,000',
+      period: isUrdu ? '/ماہ' : '/month',
+      description: isUrdu ? 'بنیادی خصوصیات کے ساتھ' : 'Basic features included',
+      maxUsers: 5,
+      maxBranches: 1,
+      features: [
+        isUrdu ? 'POS سسٹم' : 'POS System',
+        isUrdu ? 'انوینٹری منیجمنٹ' : 'Inventory Management',
+        isUrdu ? 'بنیادی رپورٹس' : 'Basic Reports',
+        isUrdu ? 'کسٹمر منیجمنٹ' : 'Customer Management'
+      ]
+    },
+    yearly: {
+      name: text.yearly,
+      price: '₨ 50,000',
+      period: isUrdu ? '/سال' : '/year',
+      description: isUrdu ? '2 ماہ مفت!' : '2 months free!',
+      maxUsers: 10,
+      maxBranches: 3,
+      features: [
+        isUrdu ? 'تمام ماہانہ خصوصیات' : 'All monthly features',
+        isUrdu ? 'ایڈوانس رپورٹس' : 'Advanced Reports',
+        isUrdu ? 'تجزیات' : 'Analytics',
+        isUrdu ? 'وفاداری پروگرام' : 'Loyalty Program',
+        isUrdu ? 'موبائل ایپ' : 'Mobile App'
+      ]
+    },
+    lifetime: {
+      name: text.lifetime,
+      price: '₨ 2,00,000',
+      period: isUrdu ? 'ایک بار' : 'one-time',
+      description: isUrdu ? 'تمام خصوصیات مکمل' : 'All features included',
+      maxUsers: 999,
+      maxBranches: 999,
+      features: [
+        isUrdu ? 'تمام سالانہ خصوصیات' : 'All yearly features',
+        isUrdu ? 'ملٹی برانچ' : 'Multi-branch',
+        isUrdu ? 'کسٹم برانڈنگ' : 'Custom Branding',
+        isUrdu ? 'انٹیگریشنز' : 'Integrations',
+        isUrdu ? 'ترجیحی سپورٹ' : 'Priority Support',
+        isUrdu ? 'کمپلائنس رپورٹس' : 'Compliance Reports'
+      ]
+    }
+  };
+
+  useEffect(() => {
+    loadLicenseData();
+  }, []);
+
+  const loadLicenseData = () => {
+    const allLicenses = licenseManager.getAllLicenses();
+    const current = licenseManager.getLicenseInfo();
+    const validation = licenseManager.validateLicense();
+    
+    setLicenses(allLicenses);
+    setCurrentLicense(current);
+    setValidationResult(validation);
+  };
+
+  const handleCreateLicense = async () => {
+    if (!branchName.trim()) return;
+    
+    setLoading(true);
+    try {
+      const newLicense = licenseManager.createLicenseForBranch(
+        Date.now().toString(),
+        branchName,
+        selectedPlan
+      );
+      
+      setLicenses([...licenses, newLicense]);
+      setShowCreateDialog(false);
+      setBranchName('');
+      loadLicenseData();
+    } catch (error) {
+      console.error('Failed to create license:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRenewLicense = async () => {
+    if (!currentLicense) return;
+    
+    setLoading(true);
+    try {
+      const success = licenseManager.renewLicense(currentLicense.id, selectedPlan);
+      if (success) {
+        setShowRenewalDialog(false);
+        loadLicenseData();
+      }
+    } catch (error) {
+      console.error('Failed to renew license:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportReport = () => {
+    const report = licenseManager.exportLicenseReport();
+    const blob = new Blob([report], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `license_report_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getStatusBadge = (status: License['status']) => {
+    const variants = {
+      active: { variant: 'default', label: text.active },
+      expired: { variant: 'destructive', label: text.expired },
+      suspended: { variant: 'destructive', label: text.suspended },
+      grace_period: { variant: 'secondary', label: text.gracePeriod }
+    };
+    
+    const config = variants[status];
+    return <Badge variant={config.variant as any}>{config.label}</Badge>;
+  };
+
+  const complianceStatus = licenseManager.getComplianceStatus();
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">{text.title}</h1>
-        <Shield className="h-8 w-8 text-blue-600" />
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">{text.title}</h1>
+        <div className="flex gap-2">
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Building className="h-4 w-4 mr-2" />
+                {text.createLicense}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{text.createLicense}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="branchName">{text.branchName}</Label>
+                  <Input
+                    id="branchName"
+                    value={branchName}
+                    onChange={(e) => setBranchName(e.target.value)}
+                    placeholder={isUrdu ? 'برانچ کا نام داخل کریں' : 'Enter branch name'}
+                  />
+                </div>
+                <div>
+                  <Label>{text.plan}</Label>
+                  <Select value={selectedPlan} onValueChange={(value: any) => setSelectedPlan(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">{planDetails.monthly.name} - {planDetails.monthly.price}</SelectItem>
+                      <SelectItem value="yearly">{planDetails.yearly.name} - {planDetails.yearly.price}</SelectItem>
+                      <SelectItem value="lifetime">{planDetails.lifetime.name} - {planDetails.lifetime.price}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    {text.cancel}
+                  </Button>
+                  <Button onClick={handleCreateLicense} disabled={loading}>
+                    {loading ? isUrdu ? 'بن رہا ہے...' : 'Creating...' : text.create}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          <Button onClick={handleExportReport} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            {text.exportReport}
+          </Button>
+        </div>
       </div>
 
-      {/* Current License Status */}
-      {validation && (
+      {/* Compliance Status Alert */}
+      {!complianceStatus.isCompliant && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {complianceStatus.issues.join(', ')}
+            {complianceStatus.recommendations.length > 0 && (
+              <div className="mt-2">
+                <strong>{isUrdu ? 'تجاویز:' : 'Recommendations:'}</strong> {complianceStatus.recommendations.join(', ')}
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Current License Overview */}
+      {currentLicense && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
+              <Shield className="h-5 w-5" />
               {text.currentLicense}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {validation.valid ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-green-600 font-medium">
-                    {validation.gracePeriodActive ? text.gracePeriod : text.active}
-                  </span>
-                  {validation.license && (
-                    <Badge className={getStatusColor(validation.license.status)}>
-                      {validation.license.status}
-                    </Badge>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500">{text.status}</div>
+                <div>{getStatusBadge(currentLicense.status)}</div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500">{text.plan}</div>
+                <div className="font-medium">
+                  {planDetails[currentLicense.plan].name}
+                  <div className="text-sm text-gray-500">
+                    {planDetails[currentLicense.plan].price}{planDetails[currentLicense.plan].period}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500">{text.expiryDate}</div>
+                <div className="font-medium">
+                  {new Date(currentLicense.expiryDate).toLocaleDateString()}
+                  {validationResult?.daysRemaining && (
+                    <div className="text-sm text-gray-500">
+                      {validationResult.daysRemaining} {text.daysRemaining}
+                    </div>
                   )}
                 </div>
-                
-                {validation.daysRemaining !== undefined && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>{text.daysRemaining}: {validation.daysRemaining}</span>
-                  </div>
-                )}
-
-                {validation.requiresRenewal && (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      {isUrdu 
-                        ? 'آپ کا لائسنس جلد ختم ہونے والا ہے۔ براہ کرم تجدید کریں۔'
-                        : 'Your license is expiring soon. Please renew to continue using all features.'
-                      }
-                    </AlertDescription>
-                  </Alert>
-                )}
               </div>
-            ) : (
-              <div className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="h-5 w-5" />
-                <span>{validation.error}</span>
+              
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500">{text.maxUsers}</div>
+                <div className="font-medium flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  {currentLicense.maxUsers}
+                </div>
+              </div>
+            </div>
+            
+            {(validationResult?.requiresRenewal || currentLicense.status === 'grace_period') && (
+              <div className="mt-4">
+                <Dialog open={showRenewalDialog} onOpenChange={setShowRenewalDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full md:w-auto">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      {text.renewLicense}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{text.renewLicense}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>{text.plan}</Label>
+                        <Select value={selectedPlan} onValueChange={(value: any) => setSelectedPlan(value)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">
+                              <div>
+                                <div>{planDetails.monthly.name} - {planDetails.monthly.price}{planDetails.monthly.period}</div>
+                                <div className="text-sm text-gray-500">{planDetails.monthly.description}</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="yearly">
+                              <div>
+                                <div>{planDetails.yearly.name} - {planDetails.yearly.price}{planDetails.yearly.period}</div>
+                                <div className="text-sm text-gray-500">{planDetails.yearly.description}</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="lifetime">
+                              <div>
+                                <div>{planDetails.lifetime.name} - {planDetails.lifetime.price} {planDetails.lifetime.period}</div>
+                                <div className="text-sm text-gray-500">{planDetails.lifetime.description}</div>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4">
+                        <h4 className="font-medium mb-2">{text.features}</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          {planDetails[selectedPlan].features.map((feature, index) => (
+                            <li key={index}>{feature}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setShowRenewalDialog(false)}>
+                          {text.cancel}
+                        </Button>
+                        <Button onClick={handleRenewLicense} disabled={loading}>
+                          {loading ? isUrdu ? 'تجدید ہو رہی ہے...' : 'Renewing...' : text.renew}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      <Tabs defaultValue="licenses" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="licenses">{text.allLicenses}</TabsTrigger>
-          <TabsTrigger value="create">{text.createNew}</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="licenses" className="space-y-4">
-          {licenses.map((license) => (
-            <Card key={license.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
-                    {license.branchName}
-                  </CardTitle>
-                  <Badge className={getStatusColor(license.status)}>
-                    {license.status}
-                  </Badge>
+      {/* Pricing Plans */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{text.pricing}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {Object.entries(planDetails).map(([planKey, plan]) => (
+              <div key={planKey} className="border rounded-lg p-6 space-y-4">
+                <div className="text-center">
+                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <div className="text-3xl font-bold text-primary mt-2">
+                    {plan.price}
+                    <span className="text-base font-normal text-gray-500">{plan.period}</span>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">{plan.description}</div>
                 </div>
-                <CardDescription>
-                  {text.licenseKey}: {license.licenseKey}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">{text.plan}</Label>
-                    <p className="text-sm">{license.plan} - {getPlanPrice(license.plan)}</p>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4" />
+                    {plan.maxUsers} {text.maxUsers}
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">{text.validUntil}</Label>
-                    <p className="text-sm">{new Date(license.expiryDate).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">{text.features}</Label>
-                    <p className="text-sm">{license.features.length} features</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">{text.hardwareId}</Label>
-                    <p className="text-sm font-mono text-xs">{license.hardwareFingerprint.substring(0, 8)}...</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Building className="h-4 w-4" />
+                    {plan.maxBranches} {text.maxBranches}
                   </div>
                 </div>
-
-                <div className="flex gap-2">
-                  <Select onValueChange={(value: License['plan']) => handleRenewLicense(license.id, value)}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder={text.renew} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">{text.monthly} - ₨5,000</SelectItem>
-                      <SelectItem value="yearly">{text.yearly} - ₨40,000</SelectItem>
-                      <SelectItem value="lifetime">{text.lifetime} - ₨100,000</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleRevokeLicense(license.id)}
-                  >
-                    {text.revoke}
-                  </Button>
+                
+                <div className="space-y-1">
+                  {plan.features.map((feature, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      {feature}
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-
-        <TabsContent value="create">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                {text.createNew}
-              </CardTitle>
-              <CardDescription>
-                {isUrdu 
-                  ? 'نئی برانچ کے لیے لائسنس بنائیں'
-                  : 'Create a new license for a branch'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="branchName">{text.branchName}</Label>
-                <Input
-                  id="branchName"
-                  value={newBranchName}
-                  onChange={(e) => setNewBranchName(e.target.value)}
-                  placeholder={isUrdu ? 'برانچ کا نام درج کریں' : 'Enter branch name'}
-                />
               </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-              <div className="space-y-2">
-                <Label>{text.selectPlan}</Label>
-                <Select value={newBranchPlan} onValueChange={(value: any) => setNewBranchPlan(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">{text.monthly} - ₨5,000/month</SelectItem>
-                    <SelectItem value="yearly">{text.yearly} - ₨40,000/year</SelectItem>
-                    <SelectItem value="lifetime">{text.lifetime} - ₨100,000 one-time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button onClick={handleCreateLicense} disabled={!newBranchName}>
-                {text.create}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* All Licenses Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{text.allLicenses}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{text.branchName}</TableHead>
+                <TableHead>{text.plan}</TableHead>
+                <TableHead>{text.status}</TableHead>
+                <TableHead>{text.expiryDate}</TableHead>
+                <TableHead>{text.licenseKey}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {licenses.map((license) => (
+                <TableRow key={license.id}>
+                  <TableCell className="font-medium">{license.branchName}</TableCell>
+                  <TableCell>
+                    <div>
+                      <div>{planDetails[license.plan].name}</div>
+                      <div className="text-sm text-gray-500">
+                        {planDetails[license.plan].price}{planDetails[license.plan].period}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(license.status)}</TableCell>
+                  <TableCell>{new Date(license.expiryDate).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                      {license.licenseKey}
+                    </code>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };
