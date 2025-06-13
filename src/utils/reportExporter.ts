@@ -8,6 +8,11 @@ interface ExportData {
     generatedAt?: string;
     branch?: string;
     period?: string;
+    totalSales?: string;
+    totalMedicines?: string;
+    totalCustomers?: string;
+    lowStockItems?: string;
+    [key: string]: string | undefined;
   };
 }
 
