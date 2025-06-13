@@ -10,9 +10,13 @@ if ('serviceWorker' in navigator && 'production' === 'production') {
       .then(registration => {
         console.log('SW registered: ', registration);
         
-        // Enable background sync
-        if ('sync' in window.ServiceWorkerRegistration.prototype) {
-          registration.sync.register('background-sync');
+        // Enable background sync - check if sync is supported
+        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+          navigator.serviceWorker.ready.then(swRegistration => {
+            return swRegistration.sync.register('background-sync');
+          }).catch(err => {
+            console.log('Background sync registration failed:', err);
+          });
         }
       })
       .catch(registrationError => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Dashboard from '../components/Dashboard';
@@ -20,6 +19,7 @@ import PrescriptionTracking from '../components/PrescriptionTracking';
 import EnhancedReports from '../components/EnhancedReports';
 import MedicineDatabase from '../components/MedicineDatabase';
 import EnhancedHeader from '../components/EnhancedHeader';
+import LicenseManagement from '../components/LicenseManagement';
 import { offlineManager } from '../utils/offlineManager';
 
 const Index = () => {
@@ -116,6 +116,8 @@ const Index = () => {
         return <AuditLogs isUrdu={isUrdu} />;
       case 'expenses':
         return <ExpenseTracker isUrdu={isUrdu} />;
+      case 'license-management':
+        return <LicenseManagement isUrdu={isUrdu} />;
       case 'settings':
         return <Settings isUrdu={isUrdu} setIsUrdu={setIsUrdu} />;
       default:
