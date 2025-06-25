@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,28 +20,43 @@ import {
   Settings as SettingsIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface SettingsProps {
   isUrdu: boolean;
   setIsUrdu: (value: boolean) => void;
 }
 
+// Default settings
+const defaultSettings = {
+  companyName: 'PharmaCare',
+  companyAddress: 'Main Boulevard, Gulshan-e-Iqbal, Karachi',
+  companyPhone: '+92-21-1234567',
+  companyEmail: 'info@pharmacare.com',
+  taxRate: '17',
+  currency: 'PKR',
+  dateFormat: 'dd/mm/yyyy',
+  notifications: true,
+  autoBackup: true,
+  printReceipts: true,
+  barcodeScanning: true,
+  language: 'en'
+};
+
 const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
   const { toast } = useToast();
-  const [settings, setSettings] = useState({
-    companyName: 'PharmaCare',
-    companyAddress: 'Main Boulevard, Gulshan-e-Iqbal, Karachi',
-    companyPhone: '+92-21-1234567',
-    companyEmail: 'info@pharmacare.com',
-    taxRate: '17',
-    currency: 'PKR',
-    dateFormat: 'dd/mm/yyyy',
-    notifications: true,
-    autoBackup: true,
-    printReceipts: true,
-    barcodeScanning: true,
-    language: isUrdu ? 'ur' : 'en'
-  });
+  const { settings: contextSettings, updateSettings } = useSettings();
+  const [settings, setSettings] = useState(contextSettings);
+  
+  // Update local state when context settings change
+  useEffect(() => {
+    setSettings(contextSettings);
+  }, [contextSettings]);
+  
+  // Update parent language when settings change
+  useEffect(() => {
+    setIsUrdu(settings.language === 'ur');
+  }, [settings.language, setIsUrdu]);
 
   const text = {
     en: {
@@ -95,16 +110,29 @@ const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
   const t = isUrdu ? text.ur : text.en;
 
   const handleSave = () => {
-    // Save settings logic here
-    toast({
-      title: t.saved,
-      description: "All settings have been updated successfully.",
-    });
+    try {
+      // Update settings through context
+      updateSettings(settings);
+      
+      // Show success message
+      toast({
+        title: t.saved,
+        description: "All settings have been updated successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save settings. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleLanguageChange = (language: string) => {
-    setSettings({ ...settings, language });
-    setIsUrdu(language === 'ur');
+    const updatedSettings = { ...settings, language };
+    setSettings(updatedSettings);
+    // Don't update parent component yet - wait for save
   };
 
   return (

@@ -123,58 +123,70 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const t = isUrdu ? text.ur : text.en;
 
   // Enhanced medicine database with more realistic data
-  const medicines = [
-    {
-      id: 1,
-      name: 'Panadol Extra',
-      genericName: 'Paracetamol',
-      price: 35.00,
-      stock: 150,
-      barcode: '123456789012',
-      category: 'Analgesic',
-      manufacturer: 'GSK'
-    },
-    {
-      id: 2,
-      name: 'Augmentin 625mg',
-      genericName: 'Amoxicillin',
-      price: 450.00,
-      stock: 45,
-      barcode: '123456789013',
-      category: 'Antibiotic',
-      manufacturer: 'GSK'
-    },
-    {
-      id: 3,
-      name: 'Brufen 400mg',
-      genericName: 'Ibuprofen',
-      price: 60.00,
-      stock: 8,
-      barcode: '123456789014',
-      category: 'Analgesic',
-      manufacturer: 'Abbott'
-    },
-    {
-      id: 4,
-      name: 'Disprol Syrup',
-      genericName: 'Paracetamol',
-      price: 85.00,
-      stock: 25,
-      barcode: '123456789015',
-      category: 'Analgesic',
-      manufacturer: 'GSK'
-    },
-    {
-      id: 5,
-      name: 'Ceclor 250mg',
-      genericName: 'Cefaclor',
-      price: 280.00,
-      stock: 30,
-      barcode: '123456789016',
-      category: 'Antibiotic',
-      manufacturer: 'Abbott'
+  // Load from localStorage if available, otherwise use default data
+  const [medicines, setMedicines] = useState(() => {
+    const savedMedicines = localStorage.getItem('pharmacy_inventory');
+    if (savedMedicines) {
+      try {
+        return JSON.parse(savedMedicines);
+      } catch (e) {
+        console.error('Error parsing saved medicines:', e);
+      }
     }
-  ];
+    // Default data if nothing in localStorage
+    return [
+      {
+        id: 1,
+        name: 'Panadol Extra',
+        genericName: 'Paracetamol',
+        price: 35.00,
+        stock: 150,
+        barcode: '123456789012',
+        category: 'Analgesic',
+        manufacturer: 'GSK'
+      },
+      {
+        id: 2,
+        name: 'Augmentin 625mg',
+        genericName: 'Amoxicillin',
+        price: 450.00,
+        stock: 45,
+        barcode: '123456789013',
+        category: 'Antibiotic',
+        manufacturer: 'GSK'
+      },
+      {
+        id: 3,
+        name: 'Brufen 400mg',
+        genericName: 'Ibuprofen',
+        price: 60.00,
+        stock: 8,
+        barcode: '123456789014',
+        category: 'Analgesic',
+        manufacturer: 'Abbott'
+      },
+      {
+        id: 4,
+        name: 'Disprol Syrup',
+        genericName: 'Paracetamol',
+        price: 85.00,
+        stock: 25,
+        barcode: '123456789015',
+        category: 'Analgesic',
+        manufacturer: 'GSK'
+      },
+      {
+        id: 5,
+        name: 'Ceclor 250mg',
+        genericName: 'Cefaclor',
+        price: 280.00,
+        stock: 30,
+        barcode: '123456789016',
+        category: 'Antibiotic',
+        manufacturer: 'Abbott'
+      }
+    ];
+  });
 
   const filteredMedicines = medicines.filter(medicine =>
     medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -193,6 +205,18 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   }, [customerInfo.phone]);
 
   const addToCart = (medicine: any) => {
+    // Check if there's enough stock
+    const availableStock = medicine.stock - (cartItems.find(item => item.id === medicine.id)?.quantity || 0);
+    
+    if (availableStock <= 0) {
+      toast({
+        title: 'Out of Stock',
+        description: `Not enough stock available for ${medicine.name}`,
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     const existingItem = cartItems.find(item => item.id === medicine.id);
     
     if (existingItem) {
@@ -270,11 +294,50 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     setShowPaymentDialog(true);
   };
 
+  // Function to update inventory after a sale
+  const updateInventory = (soldItems: any[]) => {
+    setMedicines(prevMedicines => {
+      const updatedMedicines = [...prevMedicines];
+      
+      soldItems.forEach(soldItem => {
+        const itemIndex = updatedMedicines.findIndex(item => item.id === soldItem.id);
+        if (itemIndex !== -1) {
+          const updatedStock = updatedMedicines[itemIndex].stock - soldItem.quantity;
+          updatedMedicines[itemIndex] = {
+            ...updatedMedicines[itemIndex],
+            stock: updatedStock >= 0 ? updatedStock : 0
+          };
+          console.log(`Updated ${updatedMedicines[itemIndex].name} stock: ${updatedMedicines[itemIndex].stock + soldItem.quantity} -> ${updatedMedicines[itemIndex].stock}`);
+        }
+      });
+      
+      // Save to localStorage
+      localStorage.setItem('pharmacy_inventory', JSON.stringify(updatedMedicines));
+      console.log('Updated and saved inventory to localStorage');
+      return updatedMedicines;
+    });
+  };
+
   const confirmPayment = async () => {
     setIsProcessing(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // First validate stock
+      const insufficientStockItem = cartItems.find(item => {
+        const medicine = medicines.find(m => m.id === item.id);
+        return medicine && medicine.stock < item.quantity;
+      });
+
+      if (insufficientStockItem) {
+        const medicine = medicines.find(m => m.id === insufficientStockItem.id);
+        throw new Error(`Insufficient stock for ${medicine?.name}. Only ${medicine?.stock} available.`);
+      }
+      
+      // Process payment
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update inventory first
+      updateInventory(cartItems);
       
       // Add loyalty points if customer is provided
       let pointsEarned = 0;

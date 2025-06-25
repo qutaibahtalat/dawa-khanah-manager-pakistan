@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,41 +31,79 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
-  const [suppliers, setSuppliers] = useState([
-    {
-      id: 1,
-      companyName: 'PharmaCorp Ltd',
-      contactPerson: 'Mr. Hassan Ali',
-      phone: '+92-21-34567890',
-      email: 'hassan@pharmacorp.com',
-      address: 'Industrial Area, Karachi',
-      taxId: 'NTN-1234567',
-      totalPurchases: 2500000.00,
-      pendingPayments: 125000.00,
-      lastOrder: '2024-12-08',
-      status: 'active',
-      purchases: [
-        { date: '2024-12-08', amount: 125000.00, items: 'Antibiotics, Pain killers', invoice: 'INV-001' },
-        { date: '2024-11-25', amount: 85000.00, items: 'Vitamins, Syrups', invoice: 'INV-002' }
-      ]
-    },
-    {
-      id: 2,
-      companyName: 'MediSupply Solutions',
-      contactPerson: 'Ms. Ayesha Khan',
-      phone: '+92-42-87654321',
-      email: 'ayesha@medisupply.com',
-      address: 'Medical Complex, Lahore',
-      taxId: 'NTN-7654321',
-      totalPurchases: 1850000.00,
-      pendingPayments: 0.00,
-      lastOrder: '2024-12-06',
-      status: 'active',
-      purchases: [
-        { date: '2024-12-06', amount: 95000.00, items: 'Surgical supplies', invoice: 'INV-003' }
-      ]
+  const [suppliers, setSuppliers] = useState<Array<{
+    id: number;
+    companyName: string;
+    contactPerson: string;
+    phone: string;
+    email: string;
+    address: string;
+    taxId: string;
+    totalPurchases: number;
+    pendingPayments: number;
+    lastOrder: string;
+    status: 'active' | 'inactive';
+    purchases: Array<{
+      date: string;
+      amount: number;
+      items: string;
+      invoice: string;
+    }>;
+  }>>([]);
+
+  // Load suppliers from localStorage on component mount
+  useEffect(() => {
+    const savedSuppliers = localStorage.getItem('pharmacy_suppliers');
+    if (savedSuppliers) {
+      setSuppliers(JSON.parse(savedSuppliers));
+    } else {
+      // Default suppliers if no data in localStorage
+      const defaultSuppliers = [
+        {
+          id: 1,
+          companyName: 'PharmaCorp Ltd',
+          contactPerson: 'Mr. Hassan Ali',
+          phone: '+92-21-34567890',
+          email: 'hassan@pharmacorp.com',
+          address: 'Industrial Area, Karachi',
+          taxId: 'NTN-1234567',
+          totalPurchases: 2500000.00,
+          pendingPayments: 125000.00,
+          lastOrder: '2024-12-08',
+          status: 'active' as const,
+          purchases: [
+            { date: '2024-12-08', amount: 125000.00, items: 'Antibiotics, Pain killers', invoice: 'INV-001' },
+            { date: '2024-11-25', amount: 85000.00, items: 'Vitamins, Syrups', invoice: 'INV-002' }
+          ]
+        },
+        {
+          id: 2,
+          companyName: 'MediSupply Solutions',
+          contactPerson: 'Ms. Ayesha Khan',
+          phone: '+92-42-87654321',
+          email: 'ayesha@medisupply.com',
+          address: 'Medical Complex, Lahore',
+          taxId: 'NTN-7654321',
+          totalPurchases: 1850000.00,
+          pendingPayments: 0.00,
+          lastOrder: '2024-12-06',
+          status: 'active' as const,
+          purchases: [
+            { date: '2024-12-06', amount: 95000.00, items: 'Surgical supplies', invoice: 'INV-003' }
+          ]
+        }
+      ];
+      setSuppliers(defaultSuppliers);
+      localStorage.setItem('pharmacy_suppliers', JSON.stringify(defaultSuppliers));
     }
-  ]);
+  }, []);
+
+  // Save suppliers to localStorage whenever they change
+  useEffect(() => {
+    if (suppliers.length > 0) {
+      localStorage.setItem('pharmacy_suppliers', JSON.stringify(suppliers));
+    }
+  }, [suppliers]);
 
   const text = {
     en: {

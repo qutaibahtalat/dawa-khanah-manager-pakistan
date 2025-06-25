@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,50 +30,83 @@ const BranchManagement: React.FC<BranchManagementProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<any>(null);
-  const [branches, setBranches] = useState([
-    {
-      id: 1,
-      name: 'Main Branch',
-      manager: 'Dr. Ali Ahmed',
-      phone: '+92-21-1234567',
-      email: 'main@pharmacare.com',
-      address: 'Main Boulevard, Gulshan-e-Iqbal, Karachi',
-      city: 'Karachi',
-      revenue: 850000.00,
-      expenses: 320000.00,
-      staff: 8,
-      status: 'active',
-      createdAt: '2020-01-15'
-    },
-    {
-      id: 2,
-      name: 'North Branch',
-      manager: 'Ms. Sarah Khan',
-      phone: '+92-21-9876543',
-      email: 'north@pharmacare.com',
-      address: 'North Nazimabad, Block H, Karachi',
-      city: 'Karachi',
-      revenue: 420000.00,
-      expenses: 180000.00,
-      staff: 5,
-      status: 'active',
-      createdAt: '2021-03-20'
-    },
-    {
-      id: 3,
-      name: 'Lahore Branch',
-      manager: 'Mr. Usman Ali',
-      phone: '+92-42-5555555',
-      email: 'lahore@pharmacare.com',
-      address: 'MM Alam Road, Gulberg, Lahore',
-      city: 'Lahore',
-      revenue: 650000.00,
-      expenses: 280000.00,
-      staff: 6,
-      status: 'active',
-      createdAt: '2022-06-10'
+  const [branches, setBranches] = useState<Array<{
+    id: number;
+    name: string;
+    manager: string;
+    phone: string;
+    email: string;
+    address: string;
+    city: string;
+    revenue: number;
+    expenses: number;
+    staff: number;
+    status: 'active' | 'inactive';
+    createdAt: string;
+  }>>([]);
+
+  // Load branches from localStorage on component mount
+  useEffect(() => {
+    const savedBranches = localStorage.getItem('pharmacy_branches');
+    if (savedBranches) {
+      setBranches(JSON.parse(savedBranches));
+    } else {
+      // Default branches if no data in localStorage
+      const defaultBranches = [
+        {
+          id: 1,
+          name: 'Main Branch',
+          manager: 'Dr. Ali Ahmed',
+          phone: '+92-21-1234567',
+          email: 'main@pharmacare.com',
+          address: 'Main Boulevard, Gulshan-e-Iqbal, Karachi',
+          city: 'Karachi',
+          revenue: 850000.00,
+          expenses: 320000.00,
+          staff: 8,
+          status: 'active' as const,
+          createdAt: '2020-01-15'
+        },
+        {
+          id: 2,
+          name: 'North Branch',
+          manager: 'Ms. Sarah Khan',
+          phone: '+92-21-9876543',
+          email: 'north@pharmacare.com',
+          address: 'North Nazimabad, Block H, Karachi',
+          city: 'Karachi',
+          revenue: 420000.00,
+          expenses: 180000.00,
+          staff: 5,
+          status: 'active' as const,
+          createdAt: '2021-03-20'
+        },
+        {
+          id: 3,
+          name: 'Lahore Branch',
+          manager: 'Mr. Usman Ali',
+          phone: '+92-42-5555555',
+          email: 'lahore@pharmacare.com',
+          address: 'MM Alam Road, Gulberg, Lahore',
+          city: 'Lahore',
+          revenue: 650000.00,
+          expenses: 280000.00,
+          staff: 6,
+          status: 'active' as const,
+          createdAt: '2022-06-10'
+        }
+      ];
+      setBranches(defaultBranches);
+      localStorage.setItem('pharmacy_branches', JSON.stringify(defaultBranches));
     }
-  ]);
+  }, []);
+
+  // Save branches to localStorage whenever they change
+  useEffect(() => {
+    if (branches.length > 0) {
+      localStorage.setItem('pharmacy_branches', JSON.stringify(branches));
+    }
+  }, [branches]);
 
   const text = {
     en: {

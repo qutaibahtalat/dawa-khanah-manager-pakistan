@@ -20,7 +20,8 @@ import {
   Download,
   Upload,
   Filter,
-  ScanLine
+  ScanLine,
+  X
 } from 'lucide-react';
 import { offlineManager } from '../utils/offlineManager';
 import { reportExporter } from '../utils/reportExporter';
@@ -30,59 +31,161 @@ interface MedicineManagementProps {
   isUrdu: boolean;
 }
 
+// Helper functions for localStorage
+const saveMedicinesToLocal = (medicines: any[]) => {
+  localStorage.setItem('pharmacy_medicines', JSON.stringify(medicines));
+};
+
+const loadMedicinesFromLocal = () => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('pharmacy_medicines');
+    return saved ? JSON.parse(saved) : [];
+  }
+  return [];
+};
+
 const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [medicines, setMedicines] = useState([
-    {
-      id: 1,
-      name: 'Panadol Extra',
-      genericName: 'Paracetamol',
-      category: 'Analgesic',
-      manufacturer: 'GSK',
-      batchNo: 'B123456',
-      expiryDate: '2026-12-31',
-      purchasePrice: 25.00,
-      salePrice: 35.00,
-      quantity: 150,
-      barcode: '123456789012',
-      minStock: 20,
-      maxStock: 500
-    },
-    {
-      id: 2,
-      name: 'Augmentin 625mg',
-      genericName: 'Amoxicillin',
-      category: 'Antibiotic',
-      manufacturer: 'GSK',
-      batchNo: 'B789012',
-      expiryDate: '2025-06-30',
-      purchasePrice: 350.00,
-      salePrice: 450.00,
-      quantity: 45,
-      barcode: '123456789013',
-      minStock: 10,
-      maxStock: 100
-    },
-    {
-      id: 3,
-      name: 'Brufen 400mg',
-      genericName: 'Ibuprofen',
-      category: 'Analgesic',
-      manufacturer: 'Abbott',
-      batchNo: 'B345678',
-      expiryDate: '2027-03-15',
-      purchasePrice: 45.00,
-      salePrice: 60.00,
-      quantity: 8,
-      barcode: '123456789014',
-      minStock: 15,
-      maxStock: 200
-    }
-  ]);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
+  const [formData, setFormData] = useState({
+    name: '',
+    genericName: '',
+    category: '',
+    manufacturer: '',
+    batchNo: '',
+    expiryDate: '',
+    purchasePrice: '',
+    salePrice: '',
+    quantity: '',
+    barcode: '',
+    minStock: '10',
+    maxStock: '100'
+  });
+  const [medicines, setMedicines] = useState(() => loadMedicinesFromLocal());
   const { toast } = useToast();
+  
+  // Save to localStorage whenever medicines change
+  useEffect(() => {
+    saveMedicinesToLocal(medicines);
+  }, [medicines]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+
+  const handleSelectChange = (value: string, field: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleDeleteMedicine = (id: number) => {
+    if (window.confirm(isUrdu ? 'کیا آپ واقعی یہ دوا حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this medicine?')) {
+      const updatedMedicines = medicines.filter(medicine => medicine.id !== id);
+      setMedicines(updatedMedicines);
+      
+      toast({
+        title: isUrdu ? 'کامیابی' : 'Success',
+        description: isUrdu ? 'دوا کامیابی سے حذف ہو گئی' : 'Medicine deleted successfully',
+      });
+    }
+  };
+
+  const handleEditMedicine = (medicine: any) => {
+    setFormData({
+      name: medicine.name,
+      genericName: medicine.genericName,
+      category: medicine.category,
+      manufacturer: medicine.manufacturer,
+      batchNo: medicine.batchNo,
+      expiryDate: medicine.expiryDate,
+      purchasePrice: medicine.purchasePrice.toString(),
+      salePrice: medicine.salePrice.toString(),
+      quantity: medicine.quantity.toString(),
+      barcode: medicine.barcode || '',
+      minStock: medicine.minStock.toString(),
+      maxStock: medicine.maxStock.toString()
+    });
+    setEditingId(medicine.id);
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSaveMedicine = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!formData.name || !formData.genericName || !formData.category) {
+      toast({
+        title: isUrdu ? 'خرابی' : 'Error',
+        description: isUrdu ? 'براہ کرم تمام ضروری فیلڈز بھریں' : 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const medicineData = {
+      id: editingId || Date.now(),
+      name: formData.name,
+      genericName: formData.genericName,
+      category: formData.category,
+      manufacturer: formData.manufacturer,
+      batchNo: formData.batchNo,
+      expiryDate: formData.expiryDate || new Date().toISOString().split('T')[0],
+      purchasePrice: parseFloat(formData.purchasePrice) || 0,
+      salePrice: parseFloat(formData.salePrice) || 0,
+      quantity: parseInt(formData.quantity) || 0,
+      barcode: formData.barcode,
+      minStock: parseInt(formData.minStock) || 10,
+      maxStock: parseInt(formData.maxStock) || 100,
+      status: 'In Stock'
+    };
+
+    let updatedMedicines;
+    if (editingId) {
+      // Update existing medicine
+      updatedMedicines = medicines.map(medicine => 
+        medicine.id === editingId ? medicineData : medicine
+      );
+    } else {
+      // Add new medicine
+      updatedMedicines = [...medicines, medicineData];
+    }
+    setMedicines(updatedMedicines);
+    
+    // Reset form and state
+    setFormData({
+      name: '',
+      genericName: '',
+      category: '',
+      manufacturer: '',
+      batchNo: '',
+      expiryDate: '',
+      purchasePrice: '',
+      salePrice: '',
+      quantity: '',
+      barcode: '',
+      minStock: '10',
+      maxStock: '100'
+    });
+    setEditingId(null);
+    setShowAddForm(false);
+    
+    toast({
+      title: isUrdu ? 'کامیابی' : 'Success',
+      description: isUrdu 
+        ? `دوا ${editingId ? 'اپ ڈیٹ' : 'شامل'} کر دی گئی ہے`
+        : `Medicine ${editingId ? 'updated' : 'added'} successfully`,
+    });
+  };
 
   const text = {
     en: {
@@ -316,21 +419,70 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
       {showAddForm && (
         <Card className="animate-slide-in">
           <CardHeader>
-            <CardTitle className="font-poppins">{t.addNew}</CardTitle>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold font-poppins">
+                {isUrdu 
+                  ? editingId ? 'دوا میں ترمیم کریں' : 'نئی دوا شامل کریں'
+                  : editingId ? 'Edit Medicine' : 'Add New Medicine'}
+              </h2>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setEditingId(null);
+                  setFormData({
+                    name: '',
+                    genericName: '',
+                    category: '',
+                    manufacturer: '',
+                    batchNo: '',
+                    expiryDate: '',
+                    purchasePrice: '',
+                    salePrice: '',
+                    quantity: '',
+                    barcode: '',
+                    minStock: '10',
+                    maxStock: '100'
+                  });
+                }}
+                className="rounded-full"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <form onSubmit={handleSaveMedicine}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="font-poppins">{t.medicineName} *</Label>
+                  <Input 
+                    id="name" 
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder={t.medicineName} 
+                    className="font-poppins" 
+                    required 
+                  />
+                </div>
               <div className="space-y-2">
-                <Label htmlFor="medicineName" className="font-poppins">{t.medicineName}</Label>
-                <Input id="medicineName" placeholder={t.medicineName} className="font-poppins" />
+                <Label htmlFor="genericName" className="font-poppins">{t.genericName} *</Label>
+                <Input 
+                  id="genericName" 
+                  value={formData.genericName}
+                  onChange={handleInputChange}
+                  placeholder={t.genericName} 
+                  className="font-poppins" 
+                  required 
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="genericName" className="font-poppins">{t.genericName}</Label>
-                <Input id="genericName" placeholder={t.genericName} className="font-poppins" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category" className="font-poppins">{t.category}</Label>
-                <Select>
+                <Label htmlFor="category" className="font-poppins">{t.category} *</Label>
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(value) => handleSelectChange(value, 'category')}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={t.category} />
                   </SelectTrigger>
@@ -343,49 +495,124 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="manufacturer" className="font-poppins">{t.manufacturer}</Label>
-                <Input id="manufacturer" placeholder={t.manufacturer} className="font-poppins" />
+                <Input 
+                  id="manufacturer" 
+                  value={formData.manufacturer}
+                  onChange={handleInputChange}
+                  placeholder={t.manufacturer} 
+                  className="font-poppins" 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="batchNo" className="font-poppins">{t.batchNo}</Label>
-                <Input id="batchNo" placeholder={t.batchNo} className="font-poppins" />
+                <Input 
+                  id="batchNo" 
+                  value={formData.batchNo}
+                  onChange={handleInputChange}
+                  placeholder={t.batchNo} 
+                  className="font-poppins" 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="expiryDate" className="font-poppins">{t.expiryDate}</Label>
-                <Input id="expiryDate" type="date" className="font-poppins" />
+                <Input 
+                  id="expiryDate" 
+                  type="date" 
+                  value={formData.expiryDate}
+                  onChange={handleInputChange}
+                  className="font-poppins" 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="purchasePrice" className="font-poppins">{t.purchasePrice}</Label>
-                <Input id="purchasePrice" type="number" placeholder="0.00" className="font-poppins" />
+                <Input 
+                  id="purchasePrice" 
+                  type="number" 
+                  value={formData.purchasePrice}
+                  onChange={handleInputChange}
+                  placeholder="0.00" 
+                  className="font-poppins" 
+                  min="0"
+                  step="0.01"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="salePrice" className="font-poppins">{t.salePrice}</Label>
-                <Input id="salePrice" type="number" placeholder="0.00" className="font-poppins" />
+                <Input 
+                  id="salePrice" 
+                  type="number" 
+                  value={formData.salePrice}
+                  onChange={handleInputChange}
+                  placeholder="0.00" 
+                  className="font-poppins" 
+                  min="0"
+                  step="0.01"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quantity" className="font-poppins">{t.quantity}</Label>
-                <Input id="quantity" type="number" placeholder="0" className="font-poppins" />
+                <Input 
+                  id="quantity" 
+                  type="number" 
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                  placeholder="0" 
+                  className="font-poppins" 
+                  min="0"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="minStock" className="font-poppins">{t.minStock}</Label>
-                <Input id="minStock" type="number" placeholder="0" className="font-poppins" />
+                <Input 
+                  id="minStock" 
+                  type="number" 
+                  value={formData.minStock}
+                  onChange={handleInputChange}
+                  placeholder="10" 
+                  className="font-poppins" 
+                  min="0"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="maxStock" className="font-poppins">{t.maxStock}</Label>
-                <Input id="maxStock" type="number" placeholder="0" className="font-poppins" />
+                <Input 
+                  id="maxStock" 
+                  type="number" 
+                  value={formData.maxStock}
+                  onChange={handleInputChange}
+                  placeholder="100" 
+                  className="font-poppins" 
+                  min="0"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="barcode" className="font-poppins">{t.barcode}</Label>
-                <Input id="barcode" placeholder={t.barcode} className="font-poppins" />
+                <Input 
+                  id="barcode" 
+                  value={formData.barcode}
+                  onChange={handleInputChange}
+                  placeholder={t.barcode} 
+                  className="font-poppins" 
+                />
               </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setShowAddForm(false)} className="touch-target font-poppins">
-                {t.cancel}
-              </Button>
-              <Button onClick={() => setShowAddForm(false)} className="touch-target font-poppins">
-                {t.save}
-              </Button>
-            </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setShowAddForm(false)} 
+                  className="touch-target font-poppins"
+                >
+                  {t.cancel}
+                </Button>
+                <Button 
+                  type="submit"
+                  className="touch-target font-poppins"
+                >
+                  {t.save}
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       )}
@@ -466,10 +693,20 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
                   </div>
                   
                   <div className="flex space-x-2 ml-4">
-                    <Button size="sm" variant="outline" className="touch-target">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="touch-target"
+                      onClick={() => handleEditMedicine(medicine)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="outline" className="touch-target">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="touch-target text-red-600 hover:bg-red-50 hover:text-red-700"
+                      onClick={() => handleDeleteMedicine(medicine.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,46 +36,60 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('attendance');
 
-  const [staff, setStaff] = useState([
-    {
-      id: 1,
-      name: 'Dr. Ahmad Hassan',
-      position: 'pharmacist',
-      phone: '+92-300-1234567',
-      email: 'ahmad@pharmacare.com',
-      address: 'Gulshan-e-Iqbal, Karachi',
-      salary: '85000',
-      joinDate: '2020-01-15',
-      status: 'active',
-      attendanceRecords: [
-        { date: '2024-12-01', checkIn: '09:00', checkOut: '18:00', status: 'present' },
-        { date: '2024-12-02', checkIn: '09:15', checkOut: '18:00', status: 'late' },
-        { date: '2024-12-03', checkIn: '', checkOut: '', status: 'absent' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Ms. Fatima Khan',
-      position: 'assistant',
-      phone: '+92-321-9876543',
-      email: 'fatima@pharmacare.com',
-      address: 'North Nazimabad, Karachi',
-      salary: '45000',
-      joinDate: '2021-03-20',
-      status: 'active',
-      attendanceRecords: [
-        { date: '2024-12-01', checkIn: '09:00', checkOut: '17:00', status: 'present' },
-        { date: '2024-12-02', checkIn: '09:00', checkOut: '13:00', status: 'halfDay' },
-        { date: '2024-12-03', checkIn: '09:00', checkOut: '17:00', status: 'present' }
-      ]
-    }
-  ]);
+  // Load initial data from localStorage or use default data
+  const loadInitialData = () => {
+    const savedStaff = localStorage.getItem('pharmacy_staff');
+    const savedAttendance = localStorage.getItem('pharmacy_attendance');
+    
+    const defaultStaff = [
+      {
+        id: 1,
+        name: 'Dr. Ahmad Hassan',
+        position: 'pharmacist',
+        phone: '+92-300-1234567',
+        email: 'ahmad@pharmacare.com',
+        address: 'Gulshan-e-Iqbal, Karachi',
+        salary: '85000',
+        joinDate: '2020-01-15',
+        status: 'active',
+        attendanceRecords: []
+      },
+      {
+        id: 2,
+        name: 'Ms. Fatima Khan',
+        position: 'assistant',
+        phone: '+92-321-9876543',
+        email: 'fatima@pharmacare.com',
+        address: 'North Nazimabad, Karachi',
+        salary: '45000',
+        joinDate: '2021-03-20',
+        status: 'active',
+        attendanceRecords: []
+      }
+    ];
 
-  const [attendanceRecords, setAttendanceRecords] = useState([
-    { id: 1, staffId: 1, staffName: 'Dr. Ahmad Hassan', date: '2024-12-08', checkIn: '09:00', checkOut: '18:00', status: 'present', notes: '' },
-    { id: 2, staffId: 2, staffName: 'Ms. Fatima Khan', date: '2024-12-08', checkIn: '09:05', checkOut: '17:00', status: 'late', notes: 'Traffic delay' },
-    { id: 3, staffId: 1, staffName: 'Dr. Ahmad Hassan', date: '2024-12-07', checkIn: '', checkOut: '', status: 'absent', notes: 'Sick leave' }
-  ]);
+    const defaultAttendance = [
+      { id: 1, staffId: 1, staffName: 'Dr. Ahmad Hassan', date: new Date().toISOString().split('T')[0], checkIn: '09:00', checkOut: '18:00', status: 'present', notes: '' },
+      { id: 2, staffId: 2, staffName: 'Ms. Fatima Khan', date: new Date().toISOString().split('T')[0], checkIn: '09:05', checkOut: '17:00', status: 'late', notes: 'Traffic delay' }
+    ];
+
+    return {
+      staff: savedStaff ? JSON.parse(savedStaff) : defaultStaff,
+      attendance: savedAttendance ? JSON.parse(savedAttendance) : defaultAttendance
+    };
+  };
+
+  const [staff, setStaff] = useState(loadInitialData().staff);
+  const [attendanceRecords, setAttendanceRecords] = useState(loadInitialData().attendance);
+
+  // Save to localStorage whenever staff or attendance changes
+  useEffect(() => {
+    localStorage.setItem('pharmacy_staff', JSON.stringify(staff));
+  }, [staff]);
+
+  useEffect(() => {
+    localStorage.setItem('pharmacy_attendance', JSON.stringify(attendanceRecords));
+  }, [attendanceRecords]);
 
   const text = {
     en: {
@@ -111,7 +125,9 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
       cashier: 'Cashier',
       manager: 'Manager',
       active: 'Active',
-      inactive: 'Inactive'
+      inactive: 'Inactive',
+      noRecords: 'No attendance records',
+      noRecordsDesc: 'No attendance records found for the selected period'
     },
     ur: {
       title: 'عملہ اور حاضری',
@@ -146,7 +162,9 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
       cashier: 'کیشیئر',
       manager: 'منیجر',
       active: 'فعال',
-      inactive: 'غیر فعال'
+      inactive: 'غیر فعال',
+      noRecords: 'کوئی حاضری ریکارڈ نہیں ملا',
+      noRecordsDesc: 'منتخب مدت کے لیے کوئی حاضری کا ریکارڈ دستیاب نہیں ہے'
     }
   };
 
@@ -162,8 +180,37 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
     (searchTerm === '' || record.staffName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleSaveAttendance = (attendanceData: any) => {
-    setAttendanceRecords([...attendanceRecords, { ...attendanceData, id: Date.now() }]);
+  const handleAddAttendance = (attendanceData: any) => {
+    // Generate a new ID for the attendance record
+    const newId = attendanceRecords.length > 0 ? Math.max(...attendanceRecords.map(a => a.id)) + 1 : 1;
+    
+    // Create a new attendance record with the manual staff name
+    const newAttendance = {
+      ...attendanceData,
+      id: newId,
+      staffId: newId * -1, // Negative ID to indicate manual entry (not in staff list)
+      staffName: attendanceData.staffName.trim()
+    };
+    
+    // Update attendance records in state
+    setAttendanceRecords(prev => {
+      // Remove any existing attendance for this staff on this date
+      const filtered = prev.filter(a => 
+        !(a.staffName.toLowerCase() === newAttendance.staffName.toLowerCase() && 
+          a.date === newAttendance.date)
+      );
+      
+      // Add the new attendance record
+      const updatedRecords = [...filtered, newAttendance];
+      
+      // Save to localStorage
+      localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedRecords));
+      
+      return updatedRecords;
+    });
+    
+    // Close the form
+    setShowAttendanceForm(false);
   };
 
   const handleSaveStaff = (staffData: any) => {
@@ -277,34 +324,52 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {filteredAttendance.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User className="h-5 w-5 text-blue-600" />
+                {filteredAttendance.length > 0 ? (
+                  filteredAttendance.map((record) => (
+                    <div key={`${record.staffId}-${record.date}`} className="flex items-center justify-between p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{record.staffName}</h4>
+                          <p className="text-sm text-gray-600">
+                            {new Date(record.date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              weekday: 'short'
+                            })}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-medium">{record.staffName}</h4>
-                        <p className="text-sm text-gray-600">{record.date}</p>
+                      
+                      <div className="flex items-center space-x-6">
+                        <div className="text-sm text-center">
+                          <div className="text-gray-500 text-xs">{t.checkIn}</div>
+                          <div className="font-medium">{record.checkIn || '--:--'}</div>
+                        </div>
+                        <div className="text-sm text-center">
+                          <div className="text-gray-500 text-xs">{t.checkOut}</div>
+                          <div className="font-medium">{record.checkOut || '--:--'}</div>
+                        </div>
+                        <div className="flex flex-col items-center space-y-1">
+                          <div className="text-xs text-gray-500">{t.status}</div>
+                          <div className="flex items-center space-x-1">
+                            {getStatusIcon(record.status)}
+                            {getStatusBadge(record.status)}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className="text-sm">
-                        <span className="text-gray-600">{t.checkIn}: </span>
-                        <span className="font-medium">{record.checkIn || '-'}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-600">{t.checkOut}: </span>
-                        <span className="font-medium">{record.checkOut || '-'}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(record.status)}
-                        {getStatusBadge(record.status)}
-                      </div>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                    <p>{t.noRecords}</p>
+                    <p className="text-sm">{t.noRecordsDesc}</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -383,11 +448,15 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
         </TabsContent>
       </Tabs>
 
-      {showAttendanceForm && (
+{showAttendanceForm && (
         <AttendanceForm
           isUrdu={isUrdu}
+          staffList={staff}
           onClose={() => setShowAttendanceForm(false)}
-          onSave={handleSaveAttendance}
+          onSave={(data) => {
+            console.log('Saving attendance data:', data);
+            handleAddAttendance(data);
+          }}
         />
       )}
 

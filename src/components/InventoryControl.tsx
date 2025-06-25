@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format } from 'date-fns';
 import { 
   Package, 
   AlertTriangle, 
@@ -20,9 +24,118 @@ interface InventoryControlProps {
   isUrdu: boolean;
 }
 
+interface InventoryItem {
+  id: number;
+  name: string;
+  category: string;
+  stock: number;
+  minStock: number;
+  maxStock: number;
+  purchasePrice: number;
+  salePrice: number;
+  expiryDate: string;
+  value: number;
+  manufacturingDate: string;
+  totalStockPrice: number;
+  onePiecePrice: number;
+}
+
+const STORAGE_KEY = 'inventoryItems';
+
 const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    // Load inventory from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    stock: '',
+    minStock: '',
+    maxStock: '',
+    purchasePrice: '',
+    salePrice: '',
+    expiryDate: '',
+    manufacturingDate: '',
+    totalStockPrice: '',
+    onePiecePrice: ''
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const saveInventory = (items: InventoryItem[]) => {
+    setInventory(items);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const newItem: InventoryItem = {
+      id: Date.now(),
+      name: formData.name,
+      category: formData.category,
+      stock: Number(formData.stock),
+      minStock: Number(formData.minStock),
+      maxStock: Number(formData.maxStock) || 0,
+      purchasePrice: Number(formData.purchasePrice) || 0,
+      salePrice: Number(formData.salePrice) || 0,
+      expiryDate: formData.expiryDate,
+      manufacturingDate: formData.manufacturingDate,
+      value: Number(formData.totalStockPrice) || 0,
+      totalStockPrice: Number(formData.totalStockPrice) || 0,
+      onePiecePrice: Number(formData.onePiecePrice) || 0
+    };
+
+    const updatedInventory = [...inventory, newItem];
+    saveInventory(updatedInventory);
+    
+    // Reset form
+    setFormData({
+      name: '',
+      category: '',
+      stock: '',
+      minStock: '',
+      maxStock: '',
+      purchasePrice: '',
+      salePrice: '',
+      expiryDate: '',
+      manufacturingDate: '',
+      totalStockPrice: '',
+      onePiecePrice: ''
+    });
+    
+    setIsAddDialogOpen(false);
+  };
+
+  const categories = [
+    'Analgesic',
+    'Antibiotic',
+    'Antacid',
+    'Antihistamine',
+    'Antidepressant',
+    'Antidiabetic',
+    'Antihypertensive',
+    'Antiviral',
+    'Antiseptic',
+    'Antipyretic'
+  ];
 
   const text = {
     en: {
@@ -71,57 +184,14 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Sample inventory data
-  const inventory = [
-    {
-      id: 1,
-      name: 'Panadol Extra',
-      category: 'Analgesic',
-      stock: 150,
-      minStock: 50,
-      maxStock: 500,
-      purchasePrice: 25.00,
-      salePrice: 35.00,
-      expiryDate: '2026-12-31',
-      value: 150 * 25.00
-    },
-    {
-      id: 2,
-      name: 'Augmentin 625mg',
-      category: 'Antibiotic',
-      stock: 15,
-      minStock: 20,
-      maxStock: 100,
-      purchasePrice: 350.00,
-      salePrice: 450.00,
-      expiryDate: '2025-06-30',
-      value: 15 * 350.00
-    },
-    {
-      id: 3,
-      name: 'Brufen 400mg',
-      category: 'Analgesic',
-      stock: 0,
-      minStock: 25,
-      maxStock: 200,
-      purchasePrice: 45.00,
-      salePrice: 60.00,
-      expiryDate: '2027-03-15',
-      value: 0
-    },
-    {
-      id: 4,
-      name: 'Vitamin C Tablets',
-      category: 'Vitamin',
-      stock: 50,
-      minStock: 30,
-      maxStock: 300,
-      purchasePrice: 15.00,
-      salePrice: 25.00,
-      expiryDate: '2025-01-15',
-      value: 50 * 15.00
-    }
-  ];
+  // Helper functions
+  const isExpiringSoon = (expiryDate: string) => {
+    if (!expiryDate) return false;
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    const threeDaysFromNow = new Date(today.getTime() + (90 * 24 * 60 * 60 * 1000)); // 90 days
+    return expiry <= threeDaysFromNow;
+  };
 
   const getStockStatus = (stock: number, minStock: number) => {
     if (stock === 0) return { status: 'Out of Stock', color: 'destructive', icon: AlertTriangle };
@@ -129,12 +199,11 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
     return { status: 'In Stock', color: 'default', icon: Package };
   };
 
-  const isExpiringSoon = (expiryDate: string) => {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    const threeDaysFromNow = new Date(today.getTime() + (90 * 24 * 60 * 60 * 1000)); // 90 days
-    return expiry <= threeDaysFromNow;
-  };
+  // Calculate inventory metrics
+  const inventoryValue = inventory.reduce((sum, item) => sum + (item.value || 0), 0);
+  const lowStockCount = inventory.filter(item => item.stock > 0 && item.stock <= item.minStock).length;
+  const expiringCount = inventory.filter(item => isExpiringSoon(item.expiryDate)).length;
+  const outOfStockCount = inventory.filter(item => item.stock === 0).length;
 
   const filterInventory = () => {
     let filtered = inventory.filter(item =>
@@ -155,10 +224,6 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
   };
 
   const filteredInventory = filterInventory();
-  const totalValue = inventory.reduce((sum, item) => sum + item.value, 0);
-  const lowStockCount = inventory.filter(item => item.stock > 0 && item.stock <= item.minStock).length;
-  const expiringCount = inventory.filter(item => isExpiringSoon(item.expiryDate)).length;
-  const outOfStockCount = inventory.filter(item => item.stock === 0).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -166,6 +231,168 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
         <div className="flex space-x-2">
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Package className="mr-2 h-4 w-4" />
+                {isUrdu ? 'انوینٹری شامل کریں' : 'Add Inventory'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isUrdu ? 'نیا انوینٹری آئٹم شامل کریں' : 'Add New Inventory Item'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">{isUrdu ? 'دوا کا نام' : 'Medicine Name'}</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder={isUrdu ? 'دوا کا نام درج کریں' : 'Enter medicine name'}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="category">{isUrdu ? 'قسم' : 'Category'}</Label>
+                  <Select
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                    value={formData.category}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isUrdu ? 'قسم منتخب کریں' : 'Select category'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">{isUrdu ? 'کل اسٹاک' : 'Total Stock'}</Label>
+                    <Input
+                      id="stock"
+                      name="stock"
+                      type="number"
+                      min="1"
+                      value={formData.stock}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minStock">{isUrdu ? 'کم از کم اسٹاک' : 'Minimum Stock'}</Label>
+                    <Input
+                      id="minStock"
+                      name="minStock"
+                      type="number"
+                      min="0"
+                      value={formData.minStock}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="manufacturingDate">
+                      {isUrdu ? 'تیاری کی تاریخ' : 'Manufacturing Date'}
+                    </Label>
+                    <Input
+                      id="manufacturingDate"
+                      name="manufacturingDate"
+                      type="date"
+                      value={formData.manufacturingDate}
+                      onChange={handleInputChange}
+                      max={format(new Date(), 'yyyy-MM-dd')}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryDate">
+                      {isUrdu ? 'ختم ہونے کی تاریخ' : 'Expiry Date'}
+                    </Label>
+                    <Input
+                      id="expiryDate"
+                      name="expiryDate"
+                      type="date"
+                      min={formData.manufacturingDate || format(new Date(), 'yyyy-MM-dd')}
+                      value={formData.expiryDate}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="onePiecePrice">
+                      {isUrdu ? 'ایک ٹکڑے کی قیمت' : 'One Piece Price'}
+                    </Label>
+                    <Input
+                      id="onePiecePrice"
+                      name="onePiecePrice"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={formData.onePiecePrice}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="totalStockPrice">
+                      {isUrdu ? 'کل اسٹاک قیمت' : 'Total Stock Price'}
+                    </Label>
+                    <Input
+                      id="totalStockPrice"
+                      name="totalStockPrice"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={formData.totalStockPrice}
+                      onChange={(e) => {
+                        const totalPrice = e.target.value;
+                        const onePiece = formData.stock ? (Number(totalPrice) / Number(formData.stock)).toFixed(2) : '0';
+                        setFormData(prev => ({
+                          ...prev,
+                          totalStockPrice: totalPrice,
+                          onePiecePrice: onePiece
+                        }));
+                      }}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                  >
+                    {isUrdu ? 'منسوخ کریں' : 'Cancel'}
+                  </Button>
+                  <Button type="submit">
+                    {isUrdu ? 'محفوظ کریں' : 'Save'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             {t.refresh}
@@ -184,7 +411,7 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{t.stockValue}</p>
-                <p className="text-2xl font-bold text-green-600">PKR {totalValue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">PKR {inventoryValue.toLocaleString()}</p>
               </div>
               <Package className="h-8 w-8 text-green-600" />
             </div>
@@ -272,18 +499,22 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
                       <div className="text-center">
                         <p className="text-lg font-bold">{item.stock}</p>
                         <p className="text-xs text-gray-500">Min: {item.minStock}</p>
+                        <p className="text-sm text-green-600">PKR {item.onePiecePrice?.toFixed(2) || '0.00'}</p>
                       </div>
                       
                       <div className="text-center">
+                        <p className="text-sm text-gray-600">
+                          {new Date(item.manufacturingDate).toLocaleDateString()}
+                        </p>
                         <p className={`text-sm ${isExpiring ? 'text-orange-600 font-semibold' : 'text-gray-600'}`}>
-                          {item.expiryDate}
+                          {new Date(item.expiryDate).toLocaleDateString()}
                         </p>
                         {isExpiring && <Badge variant="secondary">Expiring</Badge>}
                       </div>
                       
                       <div className="text-center">
-                        <p className="font-semibold">PKR {item.value.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500">Sale: PKR {item.salePrice}</p>
+                        <p className="font-semibold">PKR {item.totalStockPrice?.toFixed(2) || '0.00'}</p>
+                        <p className="text-xs text-gray-500">Total: {item.stock} × PKR {item.onePiecePrice?.toFixed(2) || '0.00'}</p>
                       </div>
                       
                       <div className="text-center">

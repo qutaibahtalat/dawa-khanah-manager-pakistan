@@ -57,24 +57,31 @@ const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ isUrdu, onClose, on
   const t = isUrdu ? text.ur : text.en;
 
   const addMedicine = () => {
-    setFormData({
-      ...formData,
-      medicines: [...formData.medicines, { name: '', dosage: '', quantity: 1 }]
-    });
+    setFormData(prev => ({
+      ...prev,
+      medicines: [...prev.medicines, { name: '', dosage: '', quantity: 1 }]
+    }));
   };
 
   const removeMedicine = (index: number) => {
-    setFormData({
-      ...formData,
-      medicines: formData.medicines.filter((_, i) => i !== index)
-    });
+    setFormData(prev => ({
+      ...prev,
+      medicines: prev.medicines.filter((_, i) => i !== index)
+    }));
   };
 
-  const updateMedicine = (index: number, field: string, value: any) => {
-    const updatedMedicines = formData.medicines.map((med, i) => 
-      i === index ? { ...med, [field]: value } : med
-    );
-    setFormData({ ...formData, medicines: updatedMedicines });
+  const updateMedicine = (index: number, field: string, value: string | number) => {
+    setFormData(prev => {
+      const newMedicines = [...prev.medicines];
+      newMedicines[index] = {
+        ...newMedicines[index],
+        [field]: field === 'quantity' ? (Number(value) || 0) : value
+      };
+      return {
+        ...prev,
+        medicines: newMedicines
+      };
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {

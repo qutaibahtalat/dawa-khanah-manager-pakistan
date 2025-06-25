@@ -23,10 +23,27 @@ import LicenseManagement from '../components/LicenseManagement';
 import { offlineManager } from '../utils/offlineManager';
 
 const Index = () => {
-  const [currentUser, setCurrentUser] = useState(null);
+  // Load user from localStorage on initial render
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedUser = localStorage.getItem('pharmacy_user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  
   const [activeModule, setActiveModule] = useState('dashboard');
   const [isUrdu, setIsUrdu] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Handle user login
+  const handleLogin = (user: any) => {
+    setCurrentUser(user);
+    localStorage.setItem('pharmacy_user', JSON.stringify(user));
+  };
+
+  // Handle user logout
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('pharmacy_user');
+  };
 
   // Initialize offline capabilities
   useEffect(() => {
@@ -77,7 +94,7 @@ const Index = () => {
             isDarkMode={isDarkMode}
             setIsDarkMode={setIsDarkMode}
           />
-          <Login onLogin={setCurrentUser} isUrdu={isUrdu} setIsUrdu={setIsUrdu} />
+          <Login onLogin={handleLogin} isUrdu={isUrdu} setIsUrdu={setIsUrdu} />
         </div>
         <Footer />
       </>
@@ -144,7 +161,7 @@ const Index = () => {
         activeModule={activeModule}
         setActiveModule={setActiveModule}
         currentUser={currentUser}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
         isUrdu={isUrdu}
       />
       <div className="flex-1 overflow-hidden">

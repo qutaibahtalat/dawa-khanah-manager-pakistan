@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,34 +83,65 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Sample prescription data with state management
-  const [prescriptions, setPrescriptions] = useState([
-    {
-      id: 'RX001',
-      patientName: 'Ahmed Hassan',
-      doctorName: 'Dr. Sarah Khan',
-      date: '2024-12-10',
-      status: 'pending',
-      medicines: [
-        { name: 'Augmentin 625mg', dosage: '1 tablet twice daily', quantity: 10 },
-        { name: 'Panadol Extra', dosage: '1 tablet when needed', quantity: 20 }
-      ],
-      instructions: 'Take with food. Complete the course.',
-      imageUrl: null
-    },
-    {
-      id: 'RX002',
-      patientName: 'Fatima Ali',
-      doctorName: 'Dr. Ahmed Malik',
-      date: '2024-12-09',
-      status: 'dispensed',
-      medicines: [
-        { name: 'Brufen 400mg', dosage: '1 tablet three times daily', quantity: 15 }
-      ],
-      instructions: 'Take after meals for 5 days.',
-      imageUrl: null
+  // Define the Prescription type
+  interface Medicine {
+    name: string;
+    dosage: string;
+    quantity: number;
+  }
+
+  interface Prescription {
+    id: string;
+    patientName: string;
+    doctorName: string;
+    date: string;
+    status: 'pending' | 'dispensed' | 'partial' | 'completed';
+    medicines: Medicine[];
+    instructions: string;
+    imageUrl: string | null;
+  }
+
+  // State for prescriptions with localStorage persistence
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>(() => {
+    // Load from localStorage on initial render
+    const savedPrescriptions = localStorage.getItem('pharmacy_prescriptions');
+    if (savedPrescriptions) {
+      return JSON.parse(savedPrescriptions);
     }
-  ]);
+    // Default data if nothing in localStorage
+    return [
+      {
+        id: 'RX' + Math.floor(1000 + Math.random() * 9000),
+        patientName: 'Ahmed Hassan',
+        doctorName: 'Dr. Sarah Khan',
+        date: new Date().toISOString().split('T')[0],
+        status: 'pending' as const,
+        medicines: [
+          { name: 'Augmentin 625mg', dosage: '1 tablet twice daily', quantity: 10 },
+          { name: 'Panadol Extra', dosage: '1 tablet when needed', quantity: 20 }
+        ],
+        instructions: 'Take with food. Complete the course.',
+        imageUrl: null
+      },
+      {
+        id: 'RX' + Math.floor(1000 + Math.random() * 9000),
+        patientName: 'Fatima Ali',
+        doctorName: 'Dr. Ahmed Malik',
+        date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // yesterday
+        status: 'dispensed' as const,
+        medicines: [
+          { name: 'Brufen 400mg', dosage: '1 tablet three times daily', quantity: 15 }
+        ],
+        instructions: 'Take after meals for 5 days.',
+        imageUrl: null
+      }
+    ];
+  });
+
+  // Save to localStorage whenever prescriptions change
+  useEffect(() => {
+    localStorage.setItem('pharmacy_prescriptions', JSON.stringify(prescriptions));
+  }, [prescriptions]);
 
   const handleAddPrescription = (prescriptionData: any) => {
     setPrescriptions(prev => [...prev, prescriptionData]);
@@ -119,8 +150,9 @@ const PrescriptionTracking: React.FC<PrescriptionTrackingProps> = ({ isUrdu }) =
 
   const handleEditPrescription = (prescriptionData: any) => {
     setPrescriptions(prev => prev.map(p => 
-      p.id === prescriptionData.id ? prescriptionData : p
+      p.id === prescriptionData.id ? { ...prescriptionData, status: p.status } : p
     ));
+    setEditingPrescription(null);
     console.log('Prescription updated:', prescriptionData);
   };
 

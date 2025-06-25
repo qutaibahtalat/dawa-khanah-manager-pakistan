@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -34,6 +35,7 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({
   onNotificationsClick,
   onSettingsClick
 }) => {
+  const { settings } = useSettings();
   const [isOnline, setIsOnline] = React.useState(navigator.onLine);
 
   React.useEffect(() => {
@@ -78,6 +80,9 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({
     <div className="flex items-center justify-between p-4 bg-background border-b">
       <div className="flex items-center space-x-4">
         <h1 className="text-title font-poppins">
+          <span className="text-xl font-bold truncate max-w-xs">
+            {settings.companyName || 'Pharmacy'}
+          </span>
           PharmaCare POS
         </h1>
         <Badge variant={isOnline ? "default" : "destructive"} className="flex items-center space-x-1">

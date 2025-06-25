@@ -7,23 +7,46 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Clock, Save } from 'lucide-react';
 
+interface StaffMember {
+  id: number;
+  name: string;
+  position: string;
+}
+
 interface AttendanceFormProps {
   isUrdu: boolean;
   onClose: () => void;
   onSave: (attendance: any) => void;
-  staff?: any;
+  staffList: StaffMember[];
+  staff?: StaffMember | null;  // Make staff optional and allow null
 }
 
-const AttendanceForm: React.FC<AttendanceFormProps> = ({ isUrdu, onClose, onSave, staff }) => {
-  const [formData, setFormData] = useState({
-    staffId: staff?.id || '',
-    staffName: staff?.name || '',
+const AttendanceForm: React.FC<AttendanceFormProps> = ({
+  isUrdu,
+  onClose,
+  onSave,
+  staffList = [],
+  staff = null  // Default to null for new attendance
+}) => {
+  // Initialize form with empty/default values
+  type AttendanceStatus = 'present' | 'absent' | 'late' | 'halfDay';
+
+  const [formData, setFormData] = useState(() => ({
+    staffId: null as number | null,
+    staffName: '',
     date: new Date().toISOString().split('T')[0],
     checkIn: '',
     checkOut: '',
-    status: 'present',
+    status: 'present' as AttendanceStatus,
     notes: ''
-  });
+  }));
+  
+  const handleStaffNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      staffName: e.target.value
+    }));
+  };
 
   const text = {
     en: {
@@ -62,7 +85,21 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ isUrdu, onClose, onSave
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    
+    // Validate required fields
+    if (!formData.staffName.trim() || !formData.date || !formData.status) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    // If check-in/check-out times are empty, set them to null
+    const submissionData = {
+      ...formData,
+      checkIn: formData.checkIn || null,
+      checkOut: formData.checkOut || null
+    };
+    
+    onSave(submissionData);
     onClose();
   };
 
@@ -80,16 +117,18 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ isUrdu, onClose, onSave
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label>{t.staffName}</Label>
+              <Label>{t.staffName} <span className="text-red-500">*</span></Label>
               <Input
+                type="text"
                 value={formData.staffName}
-                onChange={(e) => setFormData({...formData, staffName: e.target.value})}
+                onChange={handleStaffNameChange}
+                placeholder="Enter staff name"
                 required
               />
             </div>
             
             <div>
-              <Label>{t.date}</Label>
+              <Label>{t.date} <span className="text-red-500">*</span></Label>
               <Input
                 type="date"
                 value={formData.date}
@@ -99,27 +138,33 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ isUrdu, onClose, onSave
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{t.checkIn}</Label>
-                <Input
-                  type="time"
-                  value={formData.checkIn}
-                  onChange={(e) => setFormData({...formData, checkIn: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label>{t.checkOut}</Label>
-                <Input
-                  type="time"
-                  value={formData.checkOut}
-                  onChange={(e) => setFormData({...formData, checkOut: e.target.value})}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{t.checkIn}</Label>
+                  <Input
+                    type="time"
+                    value={formData.checkIn || ''}
+                    onChange={(e) => setFormData({...formData, checkIn: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <Label>{t.checkOut}</Label>
+                  <Input
+                    type="time"
+                    value={formData.checkOut || ''}
+                    onChange={(e) => setFormData({...formData, checkOut: e.target.value})}
+                  />
+                </div>
               </div>
             </div>
 
             <div>
               <Label>{t.status}</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+              <Select 
+                value={formData.status} 
+                onValueChange={(value: AttendanceStatus) => setFormData({...formData, status: value})}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

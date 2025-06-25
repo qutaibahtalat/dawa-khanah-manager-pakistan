@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Search, Download, Upload, Filter, BarChart3, AlertTriangle, Package } from 'lucide-react';
+import { Search, Download, Upload, Filter, BarChart3, AlertTriangle, Package, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,9 +70,41 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
   };
 
   const generateDatabase = () => {
-    const newDatabase = generateMedicineDatabase(20000); // Generate 20k medicines
-    setMedicines(newDatabase);
-    localStorage.setItem('medicine_database', JSON.stringify(newDatabase));
+    try {
+      // Generate a smaller, more manageable number of medicines
+      const newDatabase = generateMedicineDatabase(1000); // Reduced from 20k to 1k medicines
+      setMedicines(newDatabase);
+      
+      // Try to save to localStorage, but handle potential quota exceeded error
+      try {
+        localStorage.setItem('medicine_database', JSON.stringify(newDatabase));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+          // If we exceed quota, clear old data and try again with half the size
+          localStorage.removeItem('medicine_database');
+          const smallerDatabase = generateMedicineDatabase(500);
+          localStorage.setItem('medicine_database', JSON.stringify(smallerDatabase));
+          setMedicines(smallerDatabase);
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
+      }
+    } catch (error) {
+      console.error('Error generating database:', error);
+      alert(isUrdu 
+        ? 'ڈیٹا بیس بنانے میں خرابی: ' + error.message 
+        : 'Error generating database: ' + error.message);
+    }
+  };
+  
+  const clearDatabase = () => {
+    if (window.confirm(isUrdu 
+      ? 'کیا آپ واقعی ڈیٹا بیس کو صاف کرنا چاہتے ہیں؟' 
+      : 'Are you sure you want to clear the database?')) {
+      localStorage.removeItem('medicine_database');
+      setMedicines([]);
+      setFilteredMedicines([]);
+    }
   };
 
   const filterMedicines = () => {
@@ -146,9 +178,21 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{text.title}</h1>
         <div className="flex gap-2">
-          <Button onClick={generateDatabase} variant="outline">
+          <Button 
+            onClick={generateDatabase} 
+            variant="outline"
+            className="mr-2"
+          >
             <Package className="h-4 w-4 mr-2" />
             {text.generate}
+          </Button>
+          <Button 
+            onClick={clearDatabase} 
+            variant="outline" 
+            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {isUrdu ? 'ڈیٹا بیس صاف کریں' : 'Clear Database'}
           </Button>
           <Button onClick={handleImport} variant="outline">
             <Upload className="h-4 w-4 mr-2" />

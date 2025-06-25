@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
@@ -36,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout, 
   isUrdu 
 }) => {
+  const { settings } = useSettings();
   const text = {
     en: {
       dashboard: 'Dashboard',
@@ -103,9 +105,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-800">PharmaCare</h1>
-        <p className="text-sm text-gray-600">{t.welcome}, {currentUser?.name || 'User'}</p>
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white truncate">
+          {settings.companyName || 'Pharmacy'}
+        </h2>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {currentUser?.name || 'Admin'}
+          </p>
+          <p className="text-xs text-gray-400">
+            {currentUser?.role || 'User'}
+          </p>
+        </div>
       </div>
 
       {/* Navigation Menu */}
