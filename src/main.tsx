@@ -25,43 +25,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
-// Enable app install prompt
-let deferredPrompt: any;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  
-  // Show install button or banner
-  const installButton = document.createElement('button');
-  installButton.textContent = 'Install PharmaCare POS';
-  installButton.style.cssText = `
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-    background: #0057A5;
-    color: white;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-family: Poppins, sans-serif;
-  `;
-  
-  installButton.addEventListener('click', () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult: any) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-        }
-        deferredPrompt = null;
-        document.body.removeChild(installButton);
-      });
-    }
-  });
-  
-  document.body.appendChild(installButton);
-});
+// App install prompt has been removed as per user request
 
 createRoot(document.getElementById("root")!).render(<App />);

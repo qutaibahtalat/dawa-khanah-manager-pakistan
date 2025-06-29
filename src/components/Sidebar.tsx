@@ -19,7 +19,8 @@ import {
   Receipt,
   FileText,
   BarChart3,
-  Database
+  Database,
+  ArrowLeftRight
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -57,7 +58,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       logout: 'Logout',
       welcome: 'Welcome',
       prescriptions: 'Prescriptions',
-      enhancedReports: 'Analytics'
+      enhancedReports: 'Analytics',
+      returns: 'Returns'
     },
     ur: {
       dashboard: 'ڈیش بورڈ',
@@ -77,7 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       logout: 'لاگ آؤٹ',
       welcome: 'خوش آمدید',
       prescriptions: 'نسخے',
-      enhancedReports: 'تجزیات'
+      enhancedReports: 'تجزیات',
+      returns: 'واپسی'
     }
   };
 
@@ -96,6 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'staff-attendance', label: t.staffAttendance, icon: UserCheck },
     { id: 'tax-module', label: t.taxModule, icon: Receipt },
     { id: 'enhanced-reports', label: t.enhancedReports, icon: BarChart3 },
+    { id: 'returns', label: t.returns, icon: ArrowLeftRight },
     { id: 'reports', label: t.reports, icon: FileBarChart },
     { id: 'audit-logs', label: t.auditLogs, icon: Clock },
     { id: 'expenses', label: t.expenses, icon: Calculator },

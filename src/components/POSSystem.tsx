@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
@@ -21,11 +22,16 @@ import {
   CheckCircle,
   Gift,
   Star,
-  ScanLine
+  ScanLine,
+  Barcode
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { offlineManager } from '../utils/offlineManager';
 import { loyaltyManager } from '../utils/loyaltyManager';
+import { getInventory, searchInventory, updateItemStock, InventoryItem } from '@/utils/inventoryService';
+import { saveSaleToRecent } from '@/utils/salesService';
+import { useSettings } from '@/contexts/SettingsContext';
+import BarcodeScanner from './BarcodeScanner';
 
 interface POSSystemProps {
   isUrdu: boolean;
@@ -33,15 +39,60 @@ interface POSSystemProps {
 
 const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', id: '' });
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [amountReceived, setAmountReceived] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  
+  // Handle search input change
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    
+    if (!term.trim()) {
+      setFilteredItems(inventory);
+      return;
+    }
+    
+    const results = inventory.filter(item => 
+      item.name.toLowerCase().includes(term.toLowerCase()) ||
+      (item.barcode && item.barcode.toLowerCase().includes(term.toLowerCase()))
+    );
+    setFilteredItems(results);
+  };
+  
+  // Handle barcode scan - this will be defined later in the component
+  
+  // Load inventory on component mount
+  useEffect(() => {
+    const loadInventory = async () => {
+      try {
+        const items = await getInventory();
+        setInventory(items);
+        setFilteredItems(items);
+      } catch (error) {
+        console.error('Failed to load inventory:', error);
+        toast({
+          title: isUrdu ? 'نقص' : 'Error',
+          description: isUrdu 
+            ? 'انوینٹری لوڈ کرنے میں ناکامی' 
+            : 'Failed to load inventory',
+          variant: 'destructive'
+        });
+      }
+    };
+    
+    loadInventory();
+  }, []);
   const [customerLoyalty, setCustomerLoyalty] = useState<any>(null);
   const { toast } = useToast();
+  const { settings } = useSettings(); // Get settings including tax rate
 
   const text = {
     en: {
@@ -122,77 +173,32 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Enhanced medicine database with more realistic data
-  // Load from localStorage if available, otherwise use default data
-  const [medicines, setMedicines] = useState(() => {
-    const savedMedicines = localStorage.getItem('pharmacy_inventory');
-    if (savedMedicines) {
-      try {
-        return JSON.parse(savedMedicines);
-      } catch (e) {
-        console.error('Error parsing saved medicines:', e);
-      }
-    }
-    // Default data if nothing in localStorage
-    return [
-      {
-        id: 1,
-        name: 'Panadol Extra',
-        genericName: 'Paracetamol',
-        price: 35.00,
-        stock: 150,
-        barcode: '123456789012',
-        category: 'Analgesic',
-        manufacturer: 'GSK'
-      },
-      {
-        id: 2,
-        name: 'Augmentin 625mg',
-        genericName: 'Amoxicillin',
-        price: 450.00,
-        stock: 45,
-        barcode: '123456789013',
-        category: 'Antibiotic',
-        manufacturer: 'GSK'
-      },
-      {
-        id: 3,
-        name: 'Brufen 400mg',
-        genericName: 'Ibuprofen',
-        price: 60.00,
-        stock: 8,
-        barcode: '123456789014',
-        category: 'Analgesic',
-        manufacturer: 'Abbott'
-      },
-      {
-        id: 4,
-        name: 'Disprol Syrup',
-        genericName: 'Paracetamol',
-        price: 85.00,
-        stock: 25,
-        barcode: '123456789015',
-        category: 'Analgesic',
-        manufacturer: 'GSK'
-      },
-      {
-        id: 5,
-        name: 'Ceclor 250mg',
-        genericName: 'Cefaclor',
-        price: 280.00,
-        stock: 30,
-        barcode: '123456789016',
-        category: 'Antibiotic',
-        manufacturer: 'Abbott'
-      }
-    ];
-  });
+  // Use the shared inventory service for medicine data
+  const [medicines, setMedicines] = useState<InventoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredMedicines = medicines.filter(medicine =>
-    medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    medicine.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    medicine.barcode.includes(searchTerm)
-  );
+  // Load inventory data
+  useEffect(() => {
+    const loadInventory = () => {
+      const inventory = getInventory();
+      setMedicines(inventory);
+      setIsLoading(false);
+    };
+    
+    loadInventory();
+    
+    // Listen for inventory updates from other components
+    const handleStorageChange = () => {
+      loadInventory();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const filteredMedicines = searchTerm 
+    ? searchInventory(searchTerm) 
+    : medicines;
 
   // Load customer loyalty points when customer info changes
   useEffect(() => {
@@ -204,30 +210,51 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     }
   }, [customerInfo.phone]);
 
-  const addToCart = (medicine: any) => {
-    // Check if there's enough stock
-    const availableStock = medicine.stock - (cartItems.find(item => item.id === medicine.id)?.quantity || 0);
-    
-    if (availableStock <= 0) {
-      toast({
-        title: 'Out of Stock',
-        description: `Not enough stock available for ${medicine.name}`,
-        variant: 'destructive'
-      });
-      return;
-    }
-    
+  const addToCart = (medicine: InventoryItem) => {
     const existingItem = cartItems.find(item => item.id === medicine.id);
     
     if (existingItem) {
+      // Don't add more than available in stock
+      if (existingItem.quantity >= medicine.stock) {
+        toast({
+          title: isUrdu ? 'خریداری کی حد' : 'Purchase Limit',
+          description: isUrdu 
+            ? `صرف ${medicine.stock} اشیاء دستیاب ہیں` 
+            : `Only ${medicine.stock} items available in stock`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       setCartItems(cartItems.map(item =>
         item.id === medicine.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
+      // Check if there's at least 1 item in stock
+      if (medicine.stock < 1) {
+        toast({
+          title: isUrdu ? 'اسٹاک ختم' : 'Out of Stock',
+          description: isUrdu 
+            ? 'یہ دوا اس وقت دستیاب نہیں ہے' 
+            : 'This medicine is currently out of stock',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       setCartItems([...cartItems, { ...medicine, quantity: 1 }]);
     }
+    
+    // Update local state to reflect the change in stock immediately
+    setMedicines(prev => 
+      prev.map(item => 
+        item.id === medicine.id 
+          ? { ...item, stock: Math.max(0, item.stock - 1) } 
+          : item
+      )
+    );
   };
 
   const updateQuantity = (id: number, change: number) => {
@@ -244,14 +271,38 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     setCartItems(cartItems.filter(item => item.id !== id));
   };
 
+  const handleBarcodeScanned = (barcode: string) => {
+    setShowBarcodeScanner(false);
+    
+    // Search inventory for the scanned barcode
+    const inventory = getInventory();
+    const product = inventory.find(item => item.barcode === barcode);
+    
+    if (product) {
+      // Add the product to cart
+      addToCart(product);
+      
+      // Show success message
+      toast({
+        title: isUrdu ? 'کامیابی' : 'Success',
+        description: isUrdu 
+          ? `${product.name} کارٹ میں شامل کر دیا گیا ہے` 
+          : `${product.name} has been added to cart`,
+      });
+    } else {
+      // Show error if product not found
+      toast({
+        title: isUrdu ? 'خرابی' : 'Error',
+        description: isUrdu 
+          ? 'دوا نہیں ملی' 
+          : 'Product not found',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleScanBarcode = () => {
-    // Simulate barcode scanning
-    const simulatedBarcode = '123456789' + Math.floor(Math.random() * 10) + Math.floor(Math.random() * 10);
-    setSearchTerm(simulatedBarcode);
-    toast({
-      title: "Barcode Scanned",
-      description: `Searching for: ${simulatedBarcode}`,
-    });
+    setShowBarcodeScanner(true);
   };
 
   const redeemLoyaltyReward = (rewardId: string) => {
@@ -278,7 +329,8 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const discount = 0;
   const loyaltyDiscountAmount = subtotal * (loyaltyDiscount / 100);
   const taxableAmount = subtotal - discount - loyaltyDiscountAmount;
-  const tax = taxableAmount * 0.17;
+  const taxRate = parseFloat(settings.taxRate) || 0; // Get tax rate from settings
+  const tax = taxableAmount * (taxRate / 100); // Calculate tax based on the rate from settings
   const total = taxableAmount + tax;
   const change = parseFloat(amountReceived) - total;
 
@@ -294,29 +346,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     setShowPaymentDialog(true);
   };
 
-  // Function to update inventory after a sale
-  const updateInventory = (soldItems: any[]) => {
-    setMedicines(prevMedicines => {
-      const updatedMedicines = [...prevMedicines];
-      
-      soldItems.forEach(soldItem => {
-        const itemIndex = updatedMedicines.findIndex(item => item.id === soldItem.id);
-        if (itemIndex !== -1) {
-          const updatedStock = updatedMedicines[itemIndex].stock - soldItem.quantity;
-          updatedMedicines[itemIndex] = {
-            ...updatedMedicines[itemIndex],
-            stock: updatedStock >= 0 ? updatedStock : 0
-          };
-          console.log(`Updated ${updatedMedicines[itemIndex].name} stock: ${updatedMedicines[itemIndex].stock + soldItem.quantity} -> ${updatedMedicines[itemIndex].stock}`);
-        }
-      });
-      
-      // Save to localStorage
-      localStorage.setItem('pharmacy_inventory', JSON.stringify(updatedMedicines));
-      console.log('Updated and saved inventory to localStorage');
-      return updatedMedicines;
-    });
-  };
+
 
   const confirmPayment = async () => {
     setIsProcessing(true);
@@ -336,9 +366,6 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       // Process payment
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update inventory first
-      updateInventory(cartItems);
-      
       // Add loyalty points if customer is provided
       let pointsEarned = 0;
       if (customerInfo.phone) {
@@ -349,30 +376,45 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
 
       // Save sale data offline
       const saleData = {
-        id: Date.now(),
-        date: new Date().toISOString(),
+        id: `INV-${Date.now()}`,
+        date: new Date(),
+        items: cartItems,
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
-        items: cartItems,
         subtotal,
         discount,
         loyaltyDiscount: loyaltyDiscountAmount,
         tax,
+        taxRate: taxRate, // Add tax rate to sale data
         total,
         paymentMethod,
-        pointsEarned
+        pointsEarned: customerInfo.phone ? loyaltyManager.calculatePoints(total) : 0,
       };
 
       const existingSales = offlineManager.getData('sales') || [];
       offlineManager.saveData('sales', [...existingSales, saleData]);
+      
+      // Save to recent sales for dashboard
+      cartItems.forEach(item => {
+        saveSaleToRecent({
+          medicine: item.name,
+          customer: customerInfo.name || 'Walk-in Customer',
+          amount: item.price * item.quantity,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          date: new Date().toLocaleDateString()
+        });
+      });
       
       toast({
         title: t.paymentSuccessful,
         description: `Total: PKR ${total.toFixed(2)}, Points Earned: ${pointsEarned}`,
       });
       
+      // Print receipt and update inventory after print
       setTimeout(() => {
         printEnhancedReceipt(saleData);
+        // Update inventory only after successful print
+        updateInventory(cartItems);
       }, 500);
       
       setShowPaymentDialog(false);
@@ -390,6 +432,24 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const updateInventory = (items: any[]) => {
+    try {
+      items.forEach(item => {
+        const medicine = medicines.find(m => m.id === item.id);
+        if (medicine) {
+          updateItemStock(medicine.id, -item.quantity);
+        }
+      });
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      toast({
+        title: 'Inventory Update Error',
+        description: 'There was an error updating the inventory.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -413,7 +473,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     ==========================================
     Subtotal:                   PKR ${saleData.subtotal.toFixed(2).padStart(8)}
     ${saleData.loyaltyDiscount > 0 ? `Loyalty Discount:           PKR ${saleData.loyaltyDiscount.toFixed(2).padStart(8)}\n` : ''}
-    Tax (17%):                  PKR ${saleData.tax.toFixed(2).padStart(8)}
+    Tax (${saleData.taxRate}%):              PKR ${saleData.tax.toFixed(2).padStart(8)}
     Total:                      PKR ${saleData.total.toFixed(2).padStart(8)}
     
     Payment Method: ${saleData.paymentMethod.toUpperCase()}
@@ -487,9 +547,16 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
             <Input
               placeholder={t.searchPlaceholder}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 font-poppins"
+              onChange={handleSearch}
+              className="pl-10 pr-10 font-poppins"
             />
+            <button
+              type="button"
+              onClick={handleScanBarcode}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              <Barcode className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Medicine Grid */}
@@ -572,9 +639,9 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                   {loyaltyManager.getAvailableRewards(customerInfo.phone).length > 0 && (
                     <div className="space-y-1">
                       <p className="text-xs font-medium font-poppins">{t.availableRewards}:</p>
-                      {loyaltyManager.getAvailableRewards(customerInfo.phone).slice(0, 2).map(reward => (
+                      {loyaltyManager.getAvailableRewards(customerInfo.phone).slice(0, 2).map((reward) => (
                         <Button
-                          key={reward.id}
+                          key={`reward-${reward.id}`}
                           size="sm"
                           variant="outline"
                           onClick={() => redeemLoyaltyReward(reward.id)}
@@ -603,8 +670,8 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                 <p className="text-gray-500 text-center py-4 font-poppins">Cart is empty</p>
               ) : (
                 <div className="space-y-3">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  {cartItems.map((item, index) => (
+                    <div key={`${item.id}-${index}`} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <div className="flex-1">
                         <p className="font-medium text-sm font-poppins">{item.name}</p>
                         <p className="text-xs text-gray-600 font-poppins">PKR {item.price} each</p>
@@ -668,13 +735,13 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="font-poppins">{t.tax} (17%):</span>
-                  <span className="font-poppins">PKR {tax.toFixed(2)}</span>
+                  <span className="text-sm text-gray-500">{t.tax} ({taxRate}%):</span>
+                  <span className="font-medium">PKR {tax.toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span className="font-poppins">{t.total}:</span>
-                  <span className="font-poppins">PKR {total.toFixed(2)}</span>
+                  <span className="font-poppins">PKR {Math.round(total).toFixed(2)}</span>
                 </div>
                 
                 <div className="space-y-2 mt-4">
@@ -708,13 +775,13 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">
+                    <SelectItem key="cash-payment" value="cash">
                       <div className="flex items-center space-x-2">
                         <Banknote className="h-4 w-4" />
                         <span className="font-poppins">{t.cash}</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="card">
+                    <SelectItem key="card-payment" value="card">
                       <div className="flex items-center space-x-2">
                         <CreditCard className="h-4 w-4" />
                         <span className="font-poppins">{t.card}</span>
@@ -749,9 +816,11 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
               </div>
 
               {paymentMethod === 'cash' && (
-                <>
+                <div>
                   <div>
-                    <label className="block text-sm font-medium mb-2 font-poppins">{t.amountReceived}</label>
+                    <label className="block text-sm font-medium mb-2 font-poppins">
+                      {t.amountReceived}
+                    </label>
                     <Input
                       type="number"
                       value={amountReceived}
@@ -761,19 +830,24 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                     />
                   </div>
                   {amountReceived && parseFloat(amountReceived) >= total && (
-                    <div className="bg-green-50 p-4 rounded">
+                    <div className="bg-green-50 p-4 rounded mt-2">
                       <div className="flex justify-between">
                         <span className="font-poppins">{t.change}:</span>
-                        <span className="font-bold text-green-600 font-poppins">PKR {change.toFixed(2)}</span>
+                        <span className="font-bold text-green-600 font-poppins">
+                          PKR {change.toFixed(2)}
+                        </span>
                       </div>
                     </div>
                   )}
-                </>
+                </div>
+              )}
+              {paymentMethod !== 'cash' && (
+                <div className="h-[120px]"></div>
               )}
 
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 pt-2">
                 <Button 
-                  onClick={confirmPayment} 
+                  onClick={confirmPayment}
                   className="flex-1 touch-target font-poppins"
                   disabled={
                     isProcessing || 
@@ -796,6 +870,24 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
           </Card>
         </div>
       )}
+      
+      {/* Barcode Scanner Dialog */}
+      <Dialog open={showBarcodeScanner} onOpenChange={setShowBarcodeScanner}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Barcode className="h-5 w-5 mr-2" />
+              {isUrdu ? 'بار کوڈ اسکینر' : 'Barcode Scanner'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <BarcodeScanner 
+              onScan={handleBarcodeScanned} 
+              isUrdu={isUrdu} 
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

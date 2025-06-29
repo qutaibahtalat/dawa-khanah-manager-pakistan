@@ -3,7 +3,6 @@ import Sidebar from '../components/Sidebar';
 import Dashboard from '../components/Dashboard';
 import MedicineManagement from '../components/MedicineManagement';
 import POSSystem from '../components/POSSystem';
-import InventoryControl from '../components/InventoryControl';
 import Reports from '../components/Reports';
 import Settings from '../components/Settings';
 import Login from '../components/Login';
@@ -20,6 +19,8 @@ import EnhancedReports from '../components/EnhancedReports';
 import MedicineDatabase from '../components/MedicineDatabase';
 import EnhancedHeader from '../components/EnhancedHeader';
 import LicenseManagement from '../components/LicenseManagement';
+import InventoryAndReturns from '../components/InventoryAndReturns';
+import ReturnsPage from '../components/ReturnsPage';
 import { offlineManager } from '../utils/offlineManager';
 
 const Index = () => {
@@ -112,7 +113,7 @@ const Index = () => {
       case 'pos':
         return <POSSystem isUrdu={isUrdu} />;
       case 'inventory':
-        return <InventoryControl isUrdu={isUrdu} />;
+        return <InventoryAndReturns isUrdu={isUrdu} />;
       case 'customers':
         return <CustomerManagement isUrdu={isUrdu} />;
       case 'suppliers':
@@ -137,6 +138,8 @@ const Index = () => {
         return <LicenseManagement isUrdu={isUrdu} />;
       case 'settings':
         return <Settings isUrdu={isUrdu} setIsUrdu={setIsUrdu} />;
+      case 'returns':
+        return <ReturnsPage isUrdu={isUrdu} />;
       default:
         return <Dashboard isUrdu={isUrdu} />;
     }

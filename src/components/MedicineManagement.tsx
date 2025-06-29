@@ -21,7 +21,8 @@ import {
   Upload,
   Filter,
   ScanLine,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { offlineManager } from '../utils/offlineManager';
 import { reportExporter } from '../utils/reportExporter';
@@ -316,13 +317,149 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
       }
     });
 
-  const handleExportInventory = () => {
-    const exportData = reportExporter.exportInventoryReport(medicines);
-    reportExporter.exportToExcel(exportData);
-    toast({
-      title: "Export Successful",
-      description: "Inventory report has been exported successfully."
-    });
+  // Refresh the page completely
+  const refreshPage = () => {
+    window.location.reload();
+  };
+
+  // Export inventory to CSV with enhanced functionality
+  const handleExportInventory = async () => {
+    // Get the export button to update its state
+    const exportButton = document.querySelector('button[title*="Export"]');
+    let originalButtonContent = '';
+    
+    try {
+      // Show loading state
+      if (exportButton) {
+        originalButtonContent = exportButton.innerHTML;
+        exportButton.disabled = true;
+        exportButton.innerHTML = isUrdu 
+          ? '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> برآمد ہو رہا ہے...' 
+          : '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Exporting...';
+      }
+
+      // Get current medicines from state
+      const currentMedicines = [...medicines];
+      
+      if (currentMedicines.length === 0) {
+        toast({
+          title: isUrdu ? 'خبردار' : 'Warning',
+          description: isUrdu 
+            ? 'برآمد کرنے کے لیے کوئی ادویات دستیاب نہیں ہیں' 
+            : 'No medicines available to export',
+          variant: 'destructive',
+          duration: 3000
+        });
+        return;
+      }
+      
+      // Define CSV headers with proper encoding
+      const headers = [
+        'ID', 'Medicine Name', 'Generic Name', 'Category', 'Manufacturer',
+        'Batch No', 'Expiry Date', 'Quantity', 'Unit', 'Purchase Price',
+        'Sale Price', 'Status', 'Barcode', 'Min Stock', 'Max Stock',
+        'Stock Value', 'Expiry Status', 'Days To Expire'
+      ];
+
+      // Calculate additional fields and format data
+      const today = new Date();
+      const formattedData = currentMedicines.map(medicine => {
+        const expiryDate = medicine.expiryDate ? new Date(medicine.expiryDate) : null;
+        const daysToExpire = expiryDate ? 
+          Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+        
+        const stockValue = (parseFloat(medicine.quantity || 0) * parseFloat(medicine.purchasePrice || 0)).toFixed(2);
+        const isExpired = expiryDate && expiryDate < today;
+        const isExpiringSoon = expiryDate && daysToExpire && daysToExpire <= 30 && daysToExpire > 0;
+        
+        let expiryStatus = 'Valid';
+        if (isExpired) expiryStatus = 'Expired';
+        else if (isExpiringSoon) expiryStatus = 'Expiring Soon';
+        else if (!expiryDate) expiryStatus = 'Not Set';
+
+        return {
+          id: medicine.id || '',
+          name: medicine.name || '',
+          genericName: medicine.genericName || '',
+          category: medicine.category || '',
+          manufacturer: medicine.manufacturer || '',
+          batchNo: medicine.batchNo || '',
+          expiryDate: medicine.expiryDate || '',
+          quantity: medicine.quantity || 0,
+          unit: medicine.unit || 'PCS',
+          purchasePrice: parseFloat(medicine.purchasePrice || 0).toFixed(2),
+          salePrice: parseFloat(medicine.salePrice || 0).toFixed(2),
+          status: medicine.quantity === 0 ? 'Out of Stock' : 
+                  medicine.quantity <= (medicine.minStock || 10) ? 'Low Stock' : 'In Stock',
+          barcode: medicine.barcode || '',
+          minStock: medicine.minStock || 10,
+          maxStock: medicine.maxStock || 100,
+          stockValue,
+          expiryStatus,
+          daysToExpire: daysToExpire !== null ? daysToExpire : 'N/A'
+        };
+      });
+
+      // Create CSV content with proper escaping
+      const csvContent = [
+        '\uFEFF' + headers.join(','), // Add BOM for Excel compatibility
+        ...formattedData.map(item => 
+          Object.values(item).map(field => 
+            `"${String(field || '').replace(/"/g, '""')}"`
+          ).join(',')
+        )
+      ].join('\r\n');
+
+      // Create a Blob with the CSV content
+      const blob = new Blob([csvContent], { 
+        type: 'text/csv;charset=utf-8;' 
+      });
+      
+      // Create and trigger download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const fileName = `inventory_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+      // Show success message
+      toast({
+        title: isUrdu ? 'برآمدگی کامیاب' : 'Export Successful',
+        description: isUrdu 
+          ? `انوینٹری کی ${currentMedicines.length} اشیاء کامیابی سے برآمد ہو گئی ہیں` 
+          : `Successfully exported ${currentMedicines.length} items`,
+        duration: 3000
+      });
+      
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: isUrdu ? 'برآمدگی میں خرابی' : 'Export Failed',
+        description: isUrdu 
+          ? 'انوینٹری رپورٹ ڈاؤن لوڈ کرتے وقت خرابی آئی ہے' 
+          : 'Failed to download inventory report',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      // Reset button state
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.innerHTML = originalButtonContent || 
+          (isUrdu 
+            ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download h-4 w-4 mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>برآمد کریں'
+            : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download h-4 w-4 mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Export');
+      }
+    }
   };
 
   const handleBulkImport = () => {
@@ -358,19 +495,47 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
       <div className="flex justify-between items-center">
         <h1 className="text-headline font-poppins text-gray-900">{t.title}</h1>
         <div className="flex space-x-2">
-          <Button onClick={handleBulkImport} variant="outline" className="touch-target">
+          <Button 
+            onClick={refreshPage} 
+            variant="outline" 
+            className="touch-target"
+            title={isUrdu ? 'صفحہ تازہ کریں' : 'Refresh Page'}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {isUrdu ? 'صفحہ تازہ کریں' : 'Refresh Page'}
+          </Button>
+          <Button 
+            onClick={handleBulkImport} 
+            variant="outline" 
+            className="touch-target"
+            title={t.bulkImport}
+          >
             <Upload className="h-4 w-4 mr-2" />
             {t.bulkImport}
           </Button>
-          <Button onClick={handleExportInventory} variant="outline" className="touch-target">
+          <Button 
+            onClick={handleExportInventory} 
+            variant="outline" 
+            className="touch-target"
+            title={t.exportInventory}
+          >
             <Download className="h-4 w-4 mr-2" />
             {t.exportInventory}
           </Button>
-          <Button onClick={handleScanBarcode} variant="outline" className="touch-target">
+          <Button 
+            onClick={handleScanBarcode} 
+            variant="outline" 
+            className="touch-target"
+            title={t.scanBarcode}
+          >
             <ScanLine className="h-4 w-4 mr-2" />
             {t.scanBarcode}
           </Button>
-          <Button onClick={() => setShowAddForm(true)} className="flex items-center space-x-2 touch-target">
+          <Button 
+            onClick={() => setShowAddForm(true)} 
+            className="flex items-center space-x-2 touch-target"
+            title={t.addNew}
+          >
             <Plus className="h-4 w-4" />
             <span>{t.addNew}</span>
           </Button>

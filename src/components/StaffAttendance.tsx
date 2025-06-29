@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   Search, 
   Plus, 
-  Calendar, 
   Clock, 
   User,
   Download,
@@ -19,10 +18,14 @@ import {
   AlertCircle,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  FileText,
+  Calendar as CalendarIcon
 } from 'lucide-react';
+import { MonthYearPicker } from '@/components/ui/month-year-picker';
 import AttendanceForm from './AttendanceForm';
 import StaffForm from './StaffForm';
+import StaffReport from './StaffReport';
 
 interface StaffAttendanceProps {
   isUrdu: boolean;
@@ -33,8 +36,10 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
   const [showStaffForm, setShowStaffForm] = useState(false);
+  const [showStaffReport, setShowStaffReport] = useState(false);
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('attendance');
+  const [loadingButton, setLoadingButton] = useState<string | null>(null);
 
   // Load initial data from localStorage or use default data
   const loadInitialData = () => {
@@ -231,6 +236,50 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
     setStaff(staff.filter(s => s.id !== staffId));
   };
 
+  const handleTimeAction = async (record: any, action: 'checkIn' | 'checkOut') => {
+    const buttonId = `${record.staffId}-${record.date}-${action}`;
+    setLoadingButton(buttonId);
+    
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+
+    // Determine if this is a new record or updating an existing one
+    const existingRecordIndex = attendanceRecords.findIndex(
+      r => r.staffId === record.staffId && r.date === record.date
+    );
+
+    const updatedRecord = {
+      ...record,
+      [action]: timeString,
+      status: action === 'checkIn' ? 'present' : record.status
+    };
+
+    let updatedRecords;
+    if (existingRecordIndex >= 0) {
+      // Update existing record
+      updatedRecords = [...attendanceRecords];
+      updatedRecords[existingRecordIndex] = updatedRecord;
+    } else {
+      // Add new record
+      updatedRecords = [...attendanceRecords, updatedRecord];
+    }
+
+    setAttendanceRecords(updatedRecords);
+    
+    // Save to localStorage
+    localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedRecords));
+    
+    // Reset loading state after a short delay
+    setTimeout(() => setLoadingButton(null), 300);
+  };
+
   const exportAttendanceReport = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Staff Name,Date,Check In,Check Out,Status,Notes\n"
@@ -301,14 +350,16 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
                 className="pl-10"
               />
             </div>
-            <div className="flex space-x-2">
-              <Input
-                type="month"
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <MonthYearPicker
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-40"
+                onChange={setSelectedMonth}
+                className="w-full sm:w-48"
               />
-              <Button onClick={() => setShowAttendanceForm(true)}>
+              <Button 
+                onClick={() => setShowAttendanceForm(true)}
+                className="w-full sm:w-auto"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 {t.addAttendance}
               </Button>
@@ -318,7 +369,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5" />
+                <CalendarIcon className="h-5 w-5" />
                 <span>{t.monthlyView} - {selectedMonth}</span>
               </CardTitle>
             </CardHeader>
@@ -344,14 +395,46 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
                         </div>
                       </div>
                       
-                      <div className="flex items-center space-x-6">
-                        <div className="text-sm text-center">
-                          <div className="text-gray-500 text-xs">{t.checkIn}</div>
-                          <div className="font-medium">{record.checkIn || '--:--'}</div>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex flex-col space-y-2">
+                          <div className="text-sm text-center">
+                            <div className="text-gray-500 text-xs mb-1">{t.checkIn}</div>
+                            <div className="font-medium">{record.checkIn || '--:--'}</div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-1 text-xs h-7 min-w-[100px]"
+                              onClick={() => handleTimeAction(record, 'checkIn')}
+                              disabled={!!loadingButton}
+                            >
+                              {loadingButton === `${record.staffId}-${record.date}-checkIn` ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></div>
+                              ) : (
+                                <Clock className="h-3 w-3 mr-1" />
+                              )}
+                              {loadingButton === `${record.staffId}-${record.date}-checkIn` ? 'Saving...' : t.checkIn}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="text-sm text-center">
-                          <div className="text-gray-500 text-xs">{t.checkOut}</div>
-                          <div className="font-medium">{record.checkOut || '--:--'}</div>
+                        <div className="flex flex-col space-y-2">
+                          <div className="text-sm text-center">
+                            <div className="text-gray-500 text-xs mb-1">{t.checkOut}</div>
+                            <div className="font-medium">{record.checkOut || '--:--'}</div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-1 text-xs h-7 min-w-[100px]"
+                              onClick={() => handleTimeAction(record, 'checkOut')}
+                              disabled={!!loadingButton}
+                            >
+                              {loadingButton === `${record.staffId}-${record.date}-checkOut` ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></div>
+                              ) : (
+                                <Clock className="h-3 w-3 mr-1" />
+                              )}
+                              {loadingButton === `${record.staffId}-${record.date}-checkOut` ? 'Saving...' : t.checkOut}
+                            </Button>
+                          </div>
                         </div>
                         <div className="flex flex-col items-center space-y-1">
                           <div className="text-xs text-gray-500">{t.status}</div>
@@ -365,7 +448,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
                   ))
                 ) : (
                   <div className="text-center py-8 text-gray-500">
-                    <Calendar className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                    <CalendarIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
                     <p>{t.noRecords}</p>
                     <p className="text-sm">{t.noRecordsDesc}</p>
                   </div>
@@ -376,20 +459,33 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
         </TabsContent>
 
         <TabsContent value="staff" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
                 placeholder={t.searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 w-full sm:w-64"
               />
             </div>
-            <Button onClick={() => setShowStaffForm(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t.addStaff}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowStaffReport(true)}
+                className="w-full sm:w-auto"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Staff Report
+              </Button>
+              <Button 
+                onClick={() => setShowStaffForm(true)}
+                className="w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t.addStaff}
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -469,6 +565,15 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
           }}
           onSave={handleSaveStaff}
           staff={editingStaff}
+        />
+      )}
+
+      {showStaffReport && (
+        <StaffReport
+          isUrdu={isUrdu}
+          staffList={staff}
+          attendanceRecords={attendanceRecords}
+          onClose={() => setShowStaffReport(false)}
         />
       )}
     </div>

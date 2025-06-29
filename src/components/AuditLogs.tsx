@@ -10,8 +10,11 @@ import {
   Filter,
   Calendar,
   User,
-  Activity
+  Activity,
+  Loader2
 } from 'lucide-react';
+import { reportExporter } from '@/utils/reportExporter';
+import { toast } from '@/components/ui/use-toast';
 
 interface AuditLogsProps {
   isUrdu: boolean;
@@ -20,6 +23,7 @@ interface AuditLogsProps {
 const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState('all');
+  const [isExporting, setIsExporting] = useState(false);
 
   const text = {
     en: {
@@ -101,15 +105,97 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
      log.details.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const handleExportLogs = async (format: 'pdf' | 'excel') => {
+    try {
+      setIsExporting(true);
+      
+      // Prepare the export data
+      const exportData = {
+        title: `Audit_Logs_${new Date().toISOString().split('T')[0]}`,
+        headers: [
+          'Timestamp',
+          'User',
+          'Action',
+          'Entity ID',
+          'Details',
+          'Status'
+        ],
+        data: filteredLogs.map(log => [
+          log.timestamp,
+          log.user,
+          log.action.replace('_', ' '),
+          log.entityId,
+          log.details,
+          'Completed' // Assuming all logs are completed actions
+        ]),
+        metadata: {
+          'Report Type': 'Audit Logs',
+          'Total Logs': filteredLogs.length.toString(),
+          'Date Range': 'All Time', // Could be dynamic based on filter
+          'Generated At': new Date().toLocaleString(),
+          'Branch': 'Main Branch' // Could be dynamic in a real app
+        }
+      };
+
+      // Call the appropriate export function
+      if (format === 'pdf') {
+        reportExporter.exportToPDF(exportData);
+      } else {
+        reportExporter.exportToExcel(exportData);
+      }
+
+      // Show success message
+      toast({
+        title: isUrdu ? 'لاگز ایکسپورٹ ہو گئے' : 'Logs Exported',
+        description: isUrdu 
+          ? `آڈٹ لاگز کامیابی سے ${format === 'pdf' ? 'پی ڈی ایف' : 'ایکسل'} میں ایکسپورٹ ہو گئے`
+          : `Audit logs successfully exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: isUrdu ? 'خرابی' : 'Error',
+        description: isUrdu 
+          ? 'لاگز ایکسپورٹ کرتے وقت خرابی آئی ہے' 
+          : 'Failed to export logs',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-        <Button variant="outline">
-          <FileText className="h-4 w-4 mr-2" />
-          {t.export}
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={() => handleExportLogs('pdf')}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4 mr-2" />
+            )}
+            {t.export} PDF
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => handleExportLogs('excel')}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4 mr-2" />
+            )}
+            {t.export} Excel
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}

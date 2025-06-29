@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,112 +80,163 @@ const StaffForm: React.FC<StaffFormProps> = ({ isUrdu, onClose, onSave, staff })
     onClose();
   };
 
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{t.title}</span>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-hidden p-4">
+      <div className="w-full max-w-2xl bg-white rounded-lg shadow-xl overflow-y-auto max-h-[90vh]">
+        <Card className="border-0 shadow-none">
+        <CardHeader className="border-b sticky top-0 bg-white z-10">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl font-semibold">{t.title}</CardTitle>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onClose}
+              className="h-8 w-8 p-0 rounded-full"
+            >
               <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
             </Button>
-          </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>{t.name}</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required
-              />
-            </div>
-            
-            <div>
-              <Label>{t.position}</Label>
-              <Select value={formData.position} onValueChange={(value) => setFormData({...formData, position: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pharmacist">{t.pharmacist}</SelectItem>
-                  <SelectItem value="assistant">{t.assistant}</SelectItem>
-                  <SelectItem value="cashier">{t.cashier}</SelectItem>
-                  <SelectItem value="manager">{t.manager}</SelectItem>
-                </SelectContent>
-              </Select>
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">{t.name}</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full"
+                  required
+                />
+              </div>
+              
+              {/* Position */}
+              <div className="space-y-2">
+                <Label htmlFor="position" className="text-sm font-medium">{t.position}</Label>
+                <Select 
+                  value={formData.position} 
+                  onValueChange={(value) => setFormData({...formData, position: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pharmacist">{t.pharmacist}</SelectItem>
+                    <SelectItem value="assistant">{t.assistant}</SelectItem>
+                    <SelectItem value="cashier">{t.cashier}</SelectItem>
+                    <SelectItem value="manager">{t.manager}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-sm font-medium">{t.phone}</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="w-full"
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">{t.email}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Address - Full Width */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="address" className="text-sm font-medium">{t.address}</Label>
+                <Textarea
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  className="w-full min-h-[100px]"
+                />
+              </div>
+
+              {/* Salary */}
+              <div className="space-y-2">
+                <Label htmlFor="salary" className="text-sm font-medium">{t.salary}</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">PKR</span>
+                  <Input
+                    id="salary"
+                    type="number"
+                    value={formData.salary}
+                    onChange={(e) => setFormData({...formData, salary: e.target.value})}
+                    className="w-full pl-12"
+                    min="0"
+                    step="1000"
+                  />
+                </div>
+              </div>
+
+              {/* Join Date */}
+              <div className="space-y-2">
+                <Label htmlFor="joinDate" className="text-sm font-medium">{t.joinDate}</Label>
+                <Input
+                  id="joinDate"
+                  type="date"
+                  value={formData.joinDate}
+                  onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Status */}
+              <div className="space-y-2">
+                <Label htmlFor="status" className="text-sm font-medium">{t.status}</Label>
+                <Select 
+                  value={formData.status} 
+                  onValueChange={(value) => setFormData({...formData, status: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">{t.active}</SelectItem>
+                    <SelectItem value="inactive">{t.inactive}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <Label>{t.phone}</Label>
-              <Input
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                required
-              />
-            </div>
-
-            <div>
-              <Label>{t.email}</Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <Label>{t.address}</Label>
-              <Textarea
-                value={formData.address}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <Label>{t.salary}</Label>
-              <Input
-                type="number"
-                value={formData.salary}
-                onChange={(e) => setFormData({...formData, salary: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <Label>{t.joinDate}</Label>
-              <Input
-                type="date"
-                value={formData.joinDate}
-                onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <Label>{t.status}</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">{t.active}</SelectItem>
-                  <SelectItem value="inactive">{t.inactive}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex space-x-2">
-              <Button type="submit" className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                {t.save}
-              </Button>
+            {/* Form Actions */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
               <Button type="button" variant="outline" onClick={onClose}>
                 {t.cancel}
+              </Button>
+              <Button type="submit" className="min-w-[120px]">
+                <Save className="h-4 w-4 mr-2" />
+                {t.save}
               </Button>
             </div>
           </form>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

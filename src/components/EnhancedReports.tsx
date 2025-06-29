@@ -26,8 +26,11 @@ import {
   Users,
   Download,
   Calendar,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
+import { reportExporter } from '@/utils/reportExporter';
+import { toast } from '@/components/ui/use-toast';
 
 interface EnhancedReportsProps {
   isUrdu: boolean;
@@ -35,6 +38,7 @@ interface EnhancedReportsProps {
 
 const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
   const [dateRange, setDateRange] = useState({ from: '2024-12-01', to: '2024-12-31' });
+  const [isExporting, setIsExporting] = useState(false);
 
   const text = {
     en: {
@@ -104,17 +108,94 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+  const handleExport = async (type: 'pdf' | 'excel') => {
+    try {
+      setIsExporting(true);
+      
+      // Prepare the export data
+      const exportData = {
+        title: `Analytics_Report_${new Date().toISOString().split('T')[0]}`,
+        headers: [
+          'Date', 
+          'Sales (PKR)', 
+          'Profit (PKR)', 
+          'Top Product', 
+          'Top Product Sales',
+          'Active Customers'
+        ],
+        data: dailySalesData.map((day, index) => [
+          day.date,
+          day.sales.toLocaleString(),
+          day.profit.toLocaleString(),
+          topProducts[0]?.name || 'N/A',
+          topProducts[0]?.sales?.toLocaleString() || '0',
+          '284' // Static for this example, could be dynamic
+        ]),
+        metadata: {
+          'Report Type': 'Analytics Summary',
+          'Date Range': `${dateRange.from} to ${dateRange.to}`,
+          'Total Sales': `PKR ${dailySalesData.reduce((sum, day) => sum + day.sales, 0).toLocaleString()}`,
+          'Total Profit': `PKR ${dailySalesData.reduce((sum, day) => sum + day.profit, 0).toLocaleString()}`,
+          'Generated At': new Date().toLocaleString(),
+          'Branch': 'Main Branch' // Could be dynamic in a real app
+        }
+      };
+
+      // Call the appropriate export function
+      if (type === 'pdf') {
+        reportExporter.exportToPDF(exportData);
+      } else {
+        reportExporter.exportToExcel(exportData);
+      }
+
+      // Show success message
+      toast({
+        title: isUrdu ? 'رپورٹ تیار ہے' : 'Report Ready',
+        description: isUrdu 
+          ? `رپورٹ کامیابی سے ${type === 'pdf' ? 'پی ڈی ایف' : 'ایکسل'} میں ایکسپورٹ ہو گئی`
+          : `Report successfully exported as ${type.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: isUrdu ? 'خرابی' : 'Error',
+        description: isUrdu 
+          ? 'رپورٹ ایکسپورٹ کرتے وقت خرابی آئی ہے' 
+          : 'Failed to export report',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
         <div className="flex space-x-2">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={() => handleExport('pdf')}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
             {t.exportPDF}
           </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={() => handleExport('excel')}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
             {t.exportExcel}
           </Button>
         </div>

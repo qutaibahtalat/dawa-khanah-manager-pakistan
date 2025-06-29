@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from '@/components/ui/use-toast';
 import { 
   Calculator, 
   FileText, 
@@ -15,15 +16,57 @@ import {
   Clock,
   DollarSign,
   Building,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
 
 interface TaxModuleProps {
   isUrdu: boolean;
 }
 
+interface TaxReturn {
+  id: number;
+  period: string;
+  type: string;
+  amount: number;
+  dueDate: string;
+  status: 'pending' | 'submitted' | 'paid' | 'overdue';
+  submittedDate: string | null;
+}
+
 const TaxModule: React.FC<TaxModuleProps> = ({ isUrdu }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('2024-12');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [taxReturns, setTaxReturns] = useState<TaxReturn[]>([
+    {
+      id: 1,
+      period: '2024-12',
+      type: 'GST',
+      amount: 425000.00,
+      dueDate: '2025-01-15',
+      status: 'pending',
+      submittedDate: null
+    },
+    {
+      id: 2,
+      period: '2024-11',
+      type: 'GST',
+      amount: 380000.00,
+      dueDate: '2024-12-15',
+      status: 'submitted',
+      submittedDate: '2024-12-10'
+    },
+    {
+      id: 3,
+      period: '2024-11',
+      type: 'Income Tax',
+      amount: 22000.00,
+      dueDate: '2024-12-15',
+      status: 'paid',
+      submittedDate: '2024-12-08'
+    }
+  ]);
 
   const text = {
     en: {
@@ -95,36 +138,6 @@ const TaxModule: React.FC<TaxModuleProps> = ({ isUrdu }) => {
     gstNumber: 'GST-7654321'
   };
 
-  const taxReturns = [
-    {
-      id: 1,
-      period: '2024-12',
-      type: 'GST',
-      amount: 425000.00,
-      dueDate: '2025-01-15',
-      status: 'pending',
-      submittedDate: null
-    },
-    {
-      id: 2,
-      period: '2024-11',
-      type: 'GST',
-      amount: 380000.00,
-      dueDate: '2024-12-15',
-      status: 'submitted',
-      submittedDate: '2024-12-10'
-    },
-    {
-      id: 3,
-      period: '2024-11',
-      type: 'Income Tax',
-      amount: 22000.00,
-      dueDate: '2024-12-15',
-      status: 'paid',
-      submittedDate: '2024-12-08'
-    }
-  ];
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -140,18 +153,195 @@ const TaxModule: React.FC<TaxModuleProps> = ({ isUrdu }) => {
     }
   };
 
+  // Handle download report
+  const handleDownloadReport = async () => {
+    try {
+      setIsDownloading(true);
+      
+      // Get the current date for the filename
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Prepare report data
+      const reportData = {
+        period: selectedPeriod,
+        gst: {
+          rate: taxData.gstRate,
+          due: taxData.gstDue,
+          paid: taxData.gstPaid,
+          balance: taxData.gstDue - taxData.gstPaid
+        },
+        incomeTax: {
+          rate: taxData.incomeTaxRate,
+          due: taxData.incomeTaxDue,
+          paid: taxData.incomeTaxPaid,
+          balance: taxData.incomeTaxDue - taxData.incomeTaxPaid
+        },
+        totalSales: taxData.totalSales,
+        taxableAmount: taxData.taxableAmount,
+        ntnNumber: taxData.ntnNumber,
+        gstNumber: taxData.gstNumber
+      };
+
+      // Create CSV content
+      const csvContent = [
+        '\uFEFF', // Add BOM for Excel
+        'Tax Report',
+        `Period:,${selectedPeriod}`,
+        `NTN:,${taxData.ntnNumber}`,
+        `GST Number:,${taxData.gstNumber}`,
+        '',
+        'GST Details',
+        `Rate,${taxData.gstRate}%`,
+        `Tax Due,${taxData.gstDue.toFixed(2)}`,
+        `Tax Paid,${taxData.gstPaid.toFixed(2)}`,
+        `Balance,${(taxData.gstDue - taxData.gstPaid).toFixed(2)}`,
+        '',
+        'Income Tax Details',
+        `Rate,${taxData.incomeTaxRate}%`,
+        `Tax Due,${taxData.incomeTaxDue.toFixed(2)}`,
+        `Tax Paid,${taxData.incomeTaxPaid.toFixed(2)}`,
+        `Balance,${(taxData.incomeTaxDue - taxData.incomeTaxPaid).toFixed(2)}`,
+        '',
+        'Summary',
+        `Total Sales,${taxData.totalSales.toFixed(2)}`,
+        `Taxable Amount,${taxData.taxableAmount.toFixed(2)}`,
+        `Total Tax Due,${(taxData.gstDue + taxData.incomeTaxDue).toFixed(2)}`,
+        `Total Tax Paid,${(taxData.gstPaid + taxData.incomeTaxPaid).toFixed(2)}`,
+        `Total Balance,${(taxData.gstDue + taxData.incomeTaxDue - taxData.gstPaid - taxData.incomeTaxPaid).toFixed(2)}`
+      ].join('\r\n');
+
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tax_report_${selectedPeriod}_${today}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      // Show success message
+      toast({
+        title: isUrdu ? 'رپورٹ ڈاؤن لوڈ ہو گئی' : 'Report Downloaded',
+        description: isUrdu 
+          ? 'ٹیکس کی رپورٹ کامیابی سے ڈاؤن لوڈ ہو گئی' 
+          : 'Tax report has been downloaded successfully',
+        duration: 3000
+      });
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      toast({
+        title: isUrdu ? 'خرابی' : 'Error',
+        description: isUrdu 
+          ? 'رپورٹ ڈاؤن لوڈ کرتے وقت خرابی آئی ہے' 
+          : 'Failed to download report',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Handle submit to FBR
+  const handleSubmitToFBR = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // In a real app, this would be an API call to FBR
+      const submissionData = {
+        period: selectedPeriod,
+        gstAmount: taxData.gstDue,
+        incomeTaxAmount: taxData.incomeTaxDue,
+        ntnNumber: taxData.ntnNumber,
+        gstNumber: taxData.gstNumber,
+        submissionDate: new Date().toISOString()
+      };
+      
+      console.log('Submitting to FBR:', submissionData);
+      
+      // Show success message
+      toast({
+        title: isUrdu ? 'کامیابی' : 'Success',
+        description: isUrdu 
+          ? 'ٹیکس کی معلومات کامیابی سے ایف بی آر کو جمع کرائی گئیں' 
+          : 'Tax information has been successfully submitted to FBR',
+        duration: 3000
+      });
+      
+          // Update the tax returns list with the new submission
+      // In a real app, this would come from the API response
+      const newReturn: TaxReturn = {
+        id: taxReturns.length + 1,
+        period: selectedPeriod,
+        type: 'GST & Income Tax',
+        amount: taxData.gstDue + taxData.incomeTaxDue,
+        dueDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+        status: 'submitted',
+        submittedDate: new Date().toISOString().split('T')[0]
+      };
+      setTaxReturns(prevReturns => [newReturn, ...prevReturns]);
+      
+    } catch (error) {
+      console.error('Failed to submit to FBR:', error);
+      toast({
+        title: isUrdu ? 'جمع کرانے میں ناکامی' : 'Submission Failed',
+        description: isUrdu 
+          ? 'ایف بی آر کو ڈیٹا جمع کراتے وقت خرابی آئی ہے' 
+          : 'Failed to submit data to FBR. Please try again later.',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
         <div className="flex space-x-2">
-          <Button variant="outline">
-            <Upload className="h-4 w-4 mr-2" />
-            {t.submitToFBR}
+          <Button 
+            variant="outline" 
+            onClick={handleSubmitToFBR}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {isUrdu ? 'جمع کرایا جا رہا ہے...' : 'Submitting...'}
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                {t.submitToFBR}
+              </>
+            )}
           </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            {t.downloadReport}
+          <Button 
+            variant="outline"
+            onClick={handleDownloadReport}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {isUrdu ? 'ڈاؤن لوڈ ہو رہا ہے...' : 'Downloading...'}
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                {t.downloadReport}
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -354,5 +544,155 @@ const TaxModule: React.FC<TaxModuleProps> = ({ isUrdu }) => {
     </div>
   );
 };
+
+  // Handle download report
+  const handleDownloadReport = async () => {
+    try {
+      setIsDownloading(true);
+      
+      // Get the current date for the filename
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Prepare report data
+      const reportData = {
+        period: selectedPeriod,
+        gst: {
+          rate: taxData.gstRate,
+          due: taxData.gstDue,
+          paid: taxData.gstPaid,
+          balance: taxData.gstDue - taxData.gstPaid
+        },
+        incomeTax: {
+          rate: taxData.incomeTaxRate,
+          due: taxData.incomeTaxDue,
+          paid: taxData.incomeTaxPaid,
+          balance: taxData.incomeTaxDue - taxData.incomeTaxPaid
+        },
+        totalSales: taxData.totalSales,
+        taxableAmount: taxData.taxableAmount,
+        ntnNumber: taxData.ntnNumber,
+        gstNumber: taxData.gstNumber
+      };
+
+      // Create CSV content
+      const csvContent = [
+        '\uFEFF', // Add BOM for Excel
+        'Tax Report',
+        `Period:,${selectedPeriod}`,
+        `NTN:,${taxData.ntnNumber}`,
+        `GST Number:,${taxData.gstNumber}`,
+        '',
+        'GST Details',
+        `Rate,${taxData.gstRate}%`,
+        `Tax Due,${taxData.gstDue.toFixed(2)}`,
+        `Tax Paid,${taxData.gstPaid.toFixed(2)}`,
+        `Balance,${(taxData.gstDue - taxData.gstPaid).toFixed(2)}`,
+        '',
+        'Income Tax Details',
+        `Rate,${taxData.incomeTaxRate}%`,
+        `Tax Due,${taxData.incomeTaxDue.toFixed(2)}`,
+        `Tax Paid,${taxData.incomeTaxPaid.toFixed(2)}`,
+        `Balance,${(taxData.incomeTaxDue - taxData.incomeTaxPaid).toFixed(2)}`,
+        '',
+        'Summary',
+        `Total Sales,${taxData.totalSales.toFixed(2)}`,
+        `Taxable Amount,${taxData.taxableAmount.toFixed(2)}`,
+        `Total Tax Due,${(taxData.gstDue + taxData.incomeTaxDue).toFixed(2)}`,
+        `Total Tax Paid,${(taxData.gstPaid + taxData.incomeTaxPaid).toFixed(2)}`,
+        `Total Balance,${(taxData.gstDue + taxData.incomeTaxDue - taxData.gstPaid - taxData.incomeTaxPaid).toFixed(2)}`
+      ].join('\r\n');
+
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tax_report_${selectedPeriod}_${today}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      // Show success message
+      toast({
+        title: isUrdu ? 'رپورٹ ڈاؤن لوڈ ہو گئی' : 'Report Downloaded',
+        description: isUrdu 
+          ? 'ٹیکس کی رپورٹ کامیابی سے ڈاؤن لوڈ ہو گئی' 
+          : 'Tax report has been downloaded successfully',
+        duration: 3000
+      });
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      toast({
+        title: isUrdu ? 'خرابی' : 'Error',
+        description: isUrdu 
+          ? 'رپورٹ ڈاؤن لوڈ کرتے وقت خرابی آئی ہے' 
+          : 'Failed to download report',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Handle submit to FBR
+  const handleSubmitToFBR = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // In a real app, this would be an API call to FBR
+      const submissionData = {
+        period: selectedPeriod,
+        gstAmount: taxData.gstDue,
+        incomeTaxAmount: taxData.incomeTaxDue,
+        ntnNumber: taxData.ntnNumber,
+        gstNumber: taxData.gstNumber,
+        submissionDate: new Date().toISOString()
+      };
+      
+      console.log('Submitting to FBR:', submissionData);
+      
+      // Show success message
+      toast({
+        title: isUrdu ? 'کامیابی' : 'Success',
+        description: isUrdu 
+          ? 'ٹیکس کی معلومات کامیابی سے ایف بی آر کو جمع کرائی گئیں' 
+          : 'Tax information has been successfully submitted to FBR',
+        duration: 3000
+      });
+      
+      // Update the tax returns list with the new submission
+      // In a real app, this would come from the API response
+      taxReturns.unshift({
+        id: taxReturns.length + 1,
+        period: selectedPeriod,
+        type: 'GST & Income Tax',
+        amount: taxData.gstDue + taxData.incomeTaxDue,
+        dueDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+        status: 'submitted',
+        submittedDate: new Date().toISOString().split('T')[0]
+      });
+      
+    } catch (error) {
+      console.error('Failed to submit to FBR:', error);
+      toast({
+        title: isUrdu ? 'جمع کرانے میں ناکامی' : 'Submission Failed',
+        description: isUrdu 
+          ? 'ایف بی آر کو ڈیٹا جمع کراتے وقت خرابی آئی ہے' 
+          : 'Failed to submit data to FBR. Please try again later.',
+        variant: 'destructive',
+        duration: 3000
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
 export default TaxModule;

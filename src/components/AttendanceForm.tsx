@@ -35,8 +35,6 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
     staffId: null as number | null,
     staffName: '',
     date: new Date().toISOString().split('T')[0],
-    checkIn: '',
-    checkOut: '',
     status: 'present' as AttendanceStatus,
     notes: ''
   }));
@@ -92,14 +90,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
       return;
     }
     
-    // If check-in/check-out times are empty, set them to null
-    const submissionData = {
-      ...formData,
-      checkIn: formData.checkIn || null,
-      checkOut: formData.checkOut || null
-    };
-    
-    onSave(submissionData);
+    onSave(formData);
     onClose();
   };
 
@@ -135,28 +126,6 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
                 onChange={(e) => setFormData({...formData, date: e.target.value})}
                 required
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>{t.checkIn}</Label>
-                  <Input
-                    type="time"
-                    value={formData.checkIn || ''}
-                    onChange={(e) => setFormData({...formData, checkIn: e.target.value})}
-                  />
-                </div>
-
-                <div>
-                  <Label>{t.checkOut}</Label>
-                  <Input
-                    type="time"
-                    value={formData.checkOut || ''}
-                    onChange={(e) => setFormData({...formData, checkOut: e.target.value})}
-                  />
-                </div>
-              </div>
             </div>
 
             <div>
