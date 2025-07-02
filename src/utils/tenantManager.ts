@@ -51,7 +51,7 @@ class TenantManager {
     if (this.tenants.length === 0) {
       const defaultTenant: Tenant = {
         id: 'default',
-        name: 'PharmaCare POS',
+        name: '',
         branding: {
           primaryColor: '#0057A5',
           secondaryColor: '#ffffff',

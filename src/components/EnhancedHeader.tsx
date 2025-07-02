@@ -83,7 +83,6 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({
           <span className="text-xl font-bold truncate max-w-xs">
             {settings.companyName || 'Pharmacy'}
           </span>
-          PharmaCare POS
         </h1>
         <Badge variant={isOnline ? "default" : "destructive"} className="flex items-center space-x-1">
           {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
