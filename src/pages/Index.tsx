@@ -21,6 +21,7 @@ import EnhancedHeader from '../components/EnhancedHeader';
 import LicenseManagement from '../components/LicenseManagement';
 import InventoryAndReturns from '../components/InventoryAndReturns';
 import ReturnsPage from '../components/ReturnsPage';
+import UserManagement from '../components/UserManagement';
 import { offlineManager } from '../utils/offlineManager';
 
 const Index = () => {
@@ -140,6 +141,13 @@ const Index = () => {
         return <Settings isUrdu={isUrdu} setIsUrdu={setIsUrdu} />;
       case 'returns':
         return <ReturnsPage isUrdu={isUrdu} />;
+      case 'user-management':
+        // Only admin can access
+        if (currentUser?.role === 'admin') {
+          return <UserManagement currentUser={currentUser} />;
+        } else {
+          return <div className="p-8 text-red-600 font-bold">Access Denied</div>;
+        }
       default:
         return <Dashboard isUrdu={isUrdu} />;
     }

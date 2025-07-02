@@ -143,6 +143,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
                 >
                   {t.pharmacistDemo}
                 </Button>
+                <Button
+                  onClick={() => onLogin({ id: 3, username: 'cashier', role: 'cashier', name: 'Cashier' })}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {isUrdu ? 'کیشئر ڈیمو' : 'Cashier Demo'}
+                </Button>
               </div>
             </TabsContent>
           </Tabs>

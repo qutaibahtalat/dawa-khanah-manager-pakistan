@@ -86,7 +86,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const t = isUrdu ? text.ur : text.en;
 
-  const menuItems = [
+  // Define all possible menu items
+  const allMenuItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'medicines', label: t.medicines, icon: Package },
     { id: 'medicine-database', label: t.medicineDatabase, icon: Database },
@@ -105,6 +106,42 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'expenses', label: t.expenses, icon: Calculator },
     { id: 'settings', label: t.settings, icon: Settings }
   ];
+
+  // Role-based menu filtering
+  let allowedIds: string[] = [];
+  switch ((currentUser?.role || '').toLowerCase()) {
+    case 'cashier':
+      allowedIds = ['dashboard', 'pos'];
+      break;
+    case 'pharmacist':
+      allowedIds = [
+        'dashboard',
+        'medicines',
+        'inventory',
+        'prescriptions',
+        'customers',
+        'suppliers',
+        'staff-attendance',
+        'returns',
+        'pos'
+      ];
+      break;
+    case 'admin':
+      allowedIds = allMenuItems.map(item => item.id);
+      break;
+    default:
+      allowedIds = ['dashboard']; // fallback: minimal access
+  }
+
+  let menu = allMenuItems.filter(item => allowedIds.includes(item.id));
+  // Add User Management for admin
+  if ((currentUser?.role || '').toLowerCase() === 'admin') {
+    menu = [
+      ...menu,
+      { id: 'user-management', label: isUrdu ? 'یوزر مینجمنٹ' : 'User Management', icon: Users }
+    ];
+  }
+  const menuItems = menu;
 
   return (
     <div className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
