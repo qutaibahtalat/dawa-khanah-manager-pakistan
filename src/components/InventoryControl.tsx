@@ -49,9 +49,33 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
     totalStockPrice: '0',
     barcode: '',
     manufacturer: '',
+    supplierName: '', // <-- NEW FIELD
     expiryDate: '',
     manufacturingDate: ''
   });
+
+  // Supplier state for dropdown and add-new
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [showAddSupplierDialog, setShowAddSupplierDialog] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({
+    companyName: '',
+    contactPerson: '',
+    phone: '',
+    email: '',
+    address: '',
+    taxId: '',
+    status: 'active'
+  });
+
+  // Load suppliers for dropdown on mount
+  useEffect(() => {
+    const savedSuppliers = localStorage.getItem('pharmacy_suppliers');
+    if (savedSuppliers) {
+      setSuppliers(JSON.parse(savedSuppliers));
+    } else {
+      setSuppliers([]);
+    }
+  }, []);
   const [showBarcodeScannerInForm, setShowBarcodeScannerInForm] = useState(false);
   
   // Load inventory on component mount
@@ -132,6 +156,7 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
       price: Number(formData.onePiecePrice) || 0, // Use onePiecePrice for the price
       barcode: formData.barcode,
       manufacturer: formData.manufacturer,
+      supplierName: formData.supplierName,
       expiryDate: formData.expiryDate,
       manufacturingDate: formData.manufacturingDate
     };
@@ -153,11 +178,40 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
       totalStockPrice: '0',
       barcode: '',
       manufacturer: '',
+      supplierName: '',
       expiryDate: '',
       manufacturingDate: ''
     });
     
     setIsAddDialogOpen(false);
+  };
+
+  // Add new supplier handler
+  const handleAddSupplier = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newSup = {
+      ...newSupplier,
+      id: Date.now(),
+      supplies: [],
+      purchases: [],
+      totalPurchases: 0,
+      pendingPayments: 0,
+      lastOrder: new Date().toISOString().split('T')[0],
+    };
+    const updatedSuppliers = [...suppliers, newSup];
+    setSuppliers(updatedSuppliers);
+    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
+    setFormData(prev => ({ ...prev, supplierName: newSup.companyName }));
+    setShowAddSupplierDialog(false);
+    setNewSupplier({
+      companyName: '',
+      contactPerson: '',
+      phone: '',
+      email: '',
+      address: '',
+      taxId: '',
+      status: 'active'
+    });
   };
 
   const handleBarcodeScanned = (barcode: string) => {
@@ -329,51 +383,78 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">{isUrdu ? 'دوا کا نام' : 'Medicine Name'}</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      placeholder={isUrdu ? 'دوا کا نام درج کریں' : 'Enter medicine name'}
+                    <Label htmlFor="supplierName">{isUrdu ? 'سپلائر' : 'Supplier'}</Label>
+                    <Select
+                      value={formData.supplierName}
+                      onValueChange={value => {
+                        if (value === 'add_new') {
+                          setShowAddSupplierDialog(true);
+                        } else {
+                          setFormData(prev => ({ ...prev, supplierName: value }));
+                        }
+                      }}
                       required
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isUrdu ? 'سپلائر منتخب کریں' : 'Select supplier'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map(sup => (
+                          <SelectItem key={sup.companyName} value={sup.companyName}>
+                            {sup.companyName}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="add_new">
+                          {isUrdu ? 'نیا سپلائر شامل کریں' : 'Add New Supplier'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="barcode">{isUrdu ? 'بار کوڈ' : 'Barcode'}</Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowBarcodeScannerInForm(!showBarcodeScannerInForm)}
-                        className="text-xs h-6 px-2"
-                      >
-                        {showBarcodeScannerInForm 
-                          ? (isUrdu ? 'داخلہ کریں' : 'Enter Manually')
-                          : (isUrdu ? 'اسکین کریں' : 'Scan Barcode')}
-                      </Button>
-                    </div>
-                    {showBarcodeScannerInForm ? (
-                      <div className="mt-2">
-                        <BarcodeScanner 
-                          onScan={(barcode) => {
-                            setFormData(prev => ({ ...prev, barcode }));
-                            setShowBarcodeScannerInForm(false);
-                          }}
-                          isUrdu={isUrdu}
-                        />
-                      </div>
-                    ) : (
-                      <Input
-                        id="barcode"
-                        name="barcode"
-                        value={formData.barcode}
-                        onChange={handleInputChange}
-                        placeholder={isUrdu ? 'بار کوڈ درج کریں' : 'Enter barcode'}
-                      />
-                    )}
+                    <Label htmlFor="manufacturer">{isUrdu ? 'مینوفیکچرر' : 'Manufacturer'}</Label>
+                    <Input
+                      id="manufacturer"
+                      name="manufacturer"
+                      value={formData.manufacturer}
+                      onChange={handleInputChange}
+                      placeholder={isUrdu ? 'مینوفیکچرر درج کریں' : 'Enter manufacturer'}
+                    />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="barcode">{isUrdu ? 'بار کوڈ' : 'Barcode'}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBarcodeScannerInForm(!showBarcodeScannerInForm)}
+                      className="text-xs h-6 px-2"
+                    >
+                      {showBarcodeScannerInForm 
+                        ? (isUrdu ? 'داخلہ کریں' : 'Enter Manually')
+                        : (isUrdu ? 'اسکین کریں' : 'Scan Barcode')}
+                    </Button>
+                  </div>
+                  {showBarcodeScannerInForm ? (
+                    <div className="mt-2">
+                      <BarcodeScanner 
+                        onScan={(barcode) => {
+                          setFormData(prev => ({ ...prev, barcode }));
+                          setShowBarcodeScannerInForm(false);
+                        }}
+                        isUrdu={isUrdu}
+                      />
+                    </div>
+                  ) : (
+                    <Input
+                      id="barcode"
+                      name="barcode"
+                      value={formData.barcode}
+                      onChange={handleInputChange}
+                      placeholder={isUrdu ? 'بار کوڈ درج کریں' : 'Enter barcode'}
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">{isUrdu ? 'قسم' : 'Category'}</Label>
@@ -802,8 +883,84 @@ const InventoryControl: React.FC<InventoryControlProps> = ({ isUrdu }) => {
           </div>
         </TabsContent>
       </Tabs>
+    {/* Add Supplier Dialog */}
+    <Dialog open={showAddSupplierDialog} onOpenChange={setShowAddSupplierDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isUrdu ? 'نیا سپلائر شامل کریں' : 'Add New Supplier'}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleAddSupplier} className="space-y-4">
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'کمپنی کا نام' : 'Company Name'}</Label>
+            <Input
+              value={newSupplier.companyName}
+              onChange={e => setNewSupplier(prev => ({ ...prev, companyName: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'رابطہ کار' : 'Contact Person'}</Label>
+            <Input
+              value={newSupplier.contactPerson}
+              onChange={e => setNewSupplier(prev => ({ ...prev, contactPerson: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'فون نمبر' : 'Phone Number'}</Label>
+            <Input
+              value={newSupplier.phone}
+              onChange={e => setNewSupplier(prev => ({ ...prev, phone: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'ای میل' : 'Email'}</Label>
+            <Input
+              type="email"
+              value={newSupplier.email}
+              onChange={e => setNewSupplier(prev => ({ ...prev, email: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'پتہ' : 'Address'}</Label>
+            <Input
+              value={newSupplier.address}
+              onChange={e => setNewSupplier(prev => ({ ...prev, address: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'ٹیکس آئی ڈی' : 'Tax ID'}</Label>
+            <Input
+              value={newSupplier.taxId}
+              onChange={e => setNewSupplier(prev => ({ ...prev, taxId: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{isUrdu ? 'حالت' : 'Status'}</Label>
+            <Select value={newSupplier.status} onValueChange={value => setNewSupplier(prev => ({ ...prev, status: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{isUrdu ? 'فعال' : 'Active'}</SelectItem>
+                <SelectItem value="inactive">{isUrdu ? 'غیر فعال' : 'Inactive'}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex space-x-2">
+            <Button type="submit" className="flex-1">
+              {isUrdu ? 'محفوظ کریں' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowAddSupplierDialog(false)}>
+              {isUrdu ? 'منسوخ کریں' : 'Cancel'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
     </div>
   );
-};
+}
 
 export default InventoryControl;

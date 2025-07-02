@@ -27,6 +27,165 @@ interface SupplierManagementProps {
 }
 
 const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
+  // --- New state for adding supplies ---
+  const [newSupply, setNewSupply] = useState<{ name: string; cost: number; quantity: number }>({
+    name: '',
+    cost: 0,
+    quantity: 1,
+  });
+
+  // --- New state for adding orders ---
+  const [newOrder, setNewOrder] = useState<{ items: string; amount: number; invoice: string }>({
+    items: '',
+    amount: 0,
+    invoice: '',
+  });
+
+  // --- Handler to add a new order to the supplier and update inventory ---
+  const handleAddOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSupplier) return;
+    if (!newOrder.items || newOrder.amount <= 0 || !newOrder.invoice) return;
+    const itemsArr = newOrder.items.split(',').map(x => x.trim()).filter(Boolean);
+    if (itemsArr.length === 0) return;
+
+    // Append order to supplier's purchases
+    const updatedSuppliers = suppliers.map(sup => {
+      if (sup.id === selectedSupplier.id) {
+        return {
+          ...sup,
+          purchases: [
+            ...sup.purchases,
+            {
+              date: new Date().toISOString().split('T')[0],
+              amount: newOrder.amount,
+              items: newOrder.items,
+              invoice: newOrder.invoice,
+            },
+          ],
+        };
+      }
+      return sup;
+    });
+    setSuppliers(updatedSuppliers);
+    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
+
+    // --- Inventory linkage: increase stock for each item ---
+    try {
+      const { getInventory, saveInventory } = require('@/utils/inventoryService');
+      let inventory = getInventory();
+      let updated = false;
+      itemsArr.forEach((itemName: string) => {
+        const inv = inventory.find((inv: any) => inv.name.toLowerCase() === itemName.toLowerCase());
+        if (inv) {
+          inv.stock += 1; // Default add 1 per item in order (for demo, real app would allow qty per item)
+          updated = true;
+        }
+      });
+      if (updated) saveInventory([...inventory]);
+    } catch {}
+
+    setNewOrder({ items: '', amount: 0, invoice: '' });
+  };
+
+  // --- Handler to add a supplied item to the supplier and inventory ---
+  const handleAddSuppliedItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSupplier) return;
+    if (!newSupply.name || newSupply.cost <= 0 || newSupply.quantity <= 0) return;
+
+    // Update supplier's supplies
+    const updatedSuppliers = suppliers.map(sup => {
+      if (sup.id === selectedSupplier.id) {
+        return {
+          ...sup,
+          supplies: [...sup.supplies, { ...newSupply }],
+        };
+      }
+      return sup;
+    });
+    setSuppliers(updatedSuppliers);
+    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
+
+    // --- Inventory linkage ---
+    try {
+      const { getInventory, saveInventory } = require('@/utils/inventoryService');
+      let inventory = getInventory();
+      const existing = inventory.find((inv: any) => inv.name.toLowerCase() === newSupply.name.toLowerCase());
+      if (existing) {
+        // Update stock and price if item exists
+        existing.stock += newSupply.quantity;
+        existing.price = newSupply.cost;
+        saveInventory([...inventory]);
+        window.alert('Inventory updated: Stock increased for ' + newSupply.name);
+      } else {
+        // Add new inventory item
+        const newItem = {
+          id: Date.now(),
+          name: newSupply.name,
+          genericName: '',
+          category: '',
+          stock: newSupply.quantity,
+          minStock: 0,
+          maxStock: 0,
+          purchasePrice: newSupply.cost,
+          price: newSupply.cost,
+          barcode: '',
+          manufacturer: selectedSupplier.companyName,
+          expiryDate: '',
+          manufacturingDate: '',
+        };
+        saveInventory([...inventory, newItem]);
+        window.alert('New item added to inventory: ' + newSupply.name);
+      }
+    } catch (err) {
+      window.alert('Error updating inventory.');
+    }
+
+    setNewSupply({ name: '', cost: 0, quantity: 1 });
+  };
+
+  // --- Handler for "View in Inventory" ---
+  const handleViewInInventory = (item: any) => {
+    // For demo/local: just alert the user. In a full app, would scroll or highlight in inventory UI.
+    window.alert('View in Inventory: ' + item.name);
+  };
+
+  // --- Handler for "Add to Inventory" ---
+  const handleAddToInventory = (item: any) => {
+    try {
+      const { getInventory, saveInventory } = require('@/utils/inventoryService');
+      let inventory = getInventory();
+      const existing = inventory.find((inv: any) => inv.name.toLowerCase() === item.name.toLowerCase());
+      if (existing) {
+        existing.stock += item.quantity;
+        existing.price = item.cost;
+        saveInventory([...inventory]);
+        window.alert('Inventory updated: Stock increased for ' + item.name);
+      } else {
+        const newItem = {
+          id: Date.now(),
+          name: item.name,
+          genericName: '',
+          category: '',
+          stock: item.quantity,
+          minStock: 0,
+          maxStock: 0,
+          purchasePrice: item.cost,
+          price: item.cost,
+          barcode: '',
+          manufacturer: selectedSupplier ? selectedSupplier.companyName : '',
+          expiryDate: '',
+          manufacturingDate: '',
+        };
+        saveInventory([...inventory, newItem]);
+        window.alert('New item added to inventory: ' + item.name);
+      }
+    } catch (err) {
+      window.alert('Error updating inventory.');
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
@@ -43,6 +202,12 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
     pendingPayments: number;
     lastOrder: string;
     status: 'active' | 'inactive';
+    supplies: Array<{
+      name: string;
+      cost: number;
+      quantity: number;
+      inventoryId?: number;
+    }>;
     purchases: Array<{
       date: string;
       amount: number;
@@ -71,6 +236,11 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
           pendingPayments: 125000.00,
           lastOrder: '2024-12-08',
           status: 'active' as const,
+          supplies: [
+            { name: 'Antibiotics', cost: 120, quantity: 100 },
+            { name: 'Pain killers', cost: 80, quantity: 200 },
+            { name: 'Vitamins', cost: 50, quantity: 150 }
+          ],
           purchases: [
             { date: '2024-12-08', amount: 125000.00, items: 'Antibiotics, Pain killers', invoice: 'INV-001' },
             { date: '2024-11-25', amount: 85000.00, items: 'Vitamins, Syrups', invoice: 'INV-002' }
@@ -88,6 +258,10 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
           pendingPayments: 0.00,
           lastOrder: '2024-12-06',
           status: 'active' as const,
+          supplies: [
+            { name: 'Surgical supplies', cost: 200, quantity: 50 },
+            { name: 'Bandages', cost: 30, quantity: 300 }
+          ],
           purchases: [
             { date: '2024-12-06', amount: 95000.00, items: 'Surgical supplies', invoice: 'INV-003' }
           ]
@@ -220,7 +394,6 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
                           <p className="text-sm text-gray-600">{supplier.contactPerson}</p>
                         </div>
                       </div>
-                      
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="flex items-center space-x-2">
                           <Phone className="h-4 w-4 text-gray-400" />
@@ -239,7 +412,21 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
                           <span>{t.lastOrder}: {supplier.lastOrder}</span>
                         </div>
                       </div>
-                      
+                      <div className="mt-2">
+                        <span className="font-medium">Supplies:</span>{' '}
+                        {supplier.supplies && supplier.supplies.length > 0 ? (
+                          <span>
+                            {supplier.supplies.slice(0, 3).map((item: any, idx: number) => (
+                              <span key={idx} className="inline-block mr-2">
+                                {item.name} (PKR {item.cost}/qty {item.quantity})
+                              </span>
+                            ))}
+                            {supplier.supplies.length > 3 && <span>...</span>}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">No items listed</span>
+                        )}
+                      </div>
                       <div className="flex items-center space-x-4 mt-4">
                         <Badge variant="secondary">
                           {t.totalPurchases}: PKR {supplier.totalPurchases.toLocaleString()}
@@ -257,7 +444,6 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
                         </Badge>
                       </div>
                     </div>
-                    
                     <div className="flex space-x-2">
                       <Button size="sm" variant="outline" onClick={() => setSelectedSupplier(supplier)}>
                         <Eye className="h-4 w-4" />
@@ -297,7 +483,7 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
                       <h3 className="font-semibold text-lg">{selectedSupplier.companyName}</h3>
                       <p className="text-sm text-gray-600">{selectedSupplier.contactPerson}</p>
                     </div>
-                    
+
                     <div className="space-y-3 text-sm">
                       <div>
                         <label className="font-medium">{t.phone}:</label>
@@ -316,22 +502,137 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
                         <p>{selectedSupplier.taxId}</p>
                       </div>
                     </div>
+
+                    {/* Supplied Items Section */}
+                    <div className="mt-6">
+                      <h4 className="font-semibold mb-2">Supplied Items</h4>
+                      <div className="space-y-2">
+                        {selectedSupplier.supplies && selectedSupplier.supplies.length > 0 ? (
+                          selectedSupplier.supplies.map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                              <div>
+                                <span className="font-medium">{item.name}</span>
+                                <span className="ml-2 text-xs text-gray-500">Cost: PKR {item.cost}</span>
+                                <span className="ml-2 text-xs text-gray-500">Qty: {item.quantity}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleViewInInventory(item)}>
+                                  View in Inventory
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleAddToInventory(item)}>
+                                  Add to Inventory
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-xs text-gray-500">No items supplied yet.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add Item to Supplier Form */}
+                    <div className="mt-6 border-t pt-4">
+                      <h4 className="font-semibold mb-2">Add Item to Supplier</h4>
+                      <form className="flex flex-col gap-2" onSubmit={handleAddSuppliedItem}>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Item Name"
+                            value={newSupply.name}
+                            onChange={e => setNewSupply({ ...newSupply, name: e.target.value })}
+                            required
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Cost"
+                            value={newSupply.cost}
+                            onChange={e => setNewSupply({ ...newSupply, cost: Number(e.target.value) })}
+                            min={1}
+                            required
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Quantity"
+                            value={newSupply.quantity}
+                            onChange={e => setNewSupply({ ...newSupply, quantity: Number(e.target.value) })}
+                            min={1}
+                            required
+                          />
+                        </div>
+                        <Button type="submit" size="sm" className="w-fit">Add Item</Button>
+                      </form>
+                    </div>
                   </TabsContent>
                   
                   <TabsContent value="history">
                     <div className="space-y-3">
-                      {selectedSupplier.purchases.map((purchase: any, index: number) => (
-                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium">PKR {purchase.amount.toLocaleString()}</p>
-                              <p className="text-xs text-gray-600">{purchase.items}</p>
-                              <p className="text-xs text-blue-600">{purchase.invoice}</p>
+                      {/* Purchases List with Inventory Stock */}
+                      {selectedSupplier.purchases.map((purchase: any, index: number) => {
+                        // Parse items string into array (format: 'item1, item2')
+                        const itemsArr = purchase.items.split(',').map((x: string) => x.trim());
+                        // Fetch inventory for each item
+                        let inventory: any[] = [];
+                        try {
+                          const { getInventory } = require('@/utils/inventoryService');
+                          inventory = getInventory();
+                        } catch {}
+                        return (
+                          <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium">PKR {purchase.amount.toLocaleString()}</p>
+                                <div className="text-xs text-gray-600">
+                                  {itemsArr.map((itemName: string, idx: number) => {
+                                    const inv = inventory.find((inv: any) => inv.name.toLowerCase() === itemName.toLowerCase());
+                                    return (
+                                      <div key={idx} className="flex items-center gap-2">
+                                        <span>{itemName}</span>
+                                        {inv ? (
+                                          <span className="text-green-600">(Stock: {inv.stock})</span>
+                                        ) : (
+                                          <span className="text-red-500">(Not in inventory)</span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <p className="text-xs text-blue-600">{purchase.invoice}</p>
+                              </div>
+                              <p className="text-xs text-gray-500">{purchase.date}</p>
                             </div>
-                            <p className="text-xs text-gray-500">{purchase.date}</p>
                           </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add New Order Form */}
+                    <div className="mt-6 border-t pt-4">
+                      <h4 className="font-semibold mb-2">Add New Order</h4>
+                      <form className="flex flex-col gap-2" onSubmit={handleAddOrder}>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Items (comma separated)"
+                            value={newOrder.items}
+                            onChange={e => setNewOrder({ ...newOrder, items: e.target.value })}
+                            required
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Total Amount"
+                            value={newOrder.amount}
+                            onChange={e => setNewOrder({ ...newOrder, amount: Number(e.target.value) })}
+                            min={1}
+                            required
+                          />
+                          <Input
+                            placeholder="Invoice Number"
+                            value={newOrder.invoice}
+                            onChange={e => setNewOrder({ ...newOrder, invoice: e.target.value })}
+                            required
+                          />
                         </div>
-                      ))}
+                        <Button type="submit" size="sm" className="w-fit">Add Order</Button>
+                      </form>
                     </div>
                   </TabsContent>
                 </Tabs>

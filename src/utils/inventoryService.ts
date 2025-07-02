@@ -14,6 +14,7 @@ export interface InventoryItem {
   purchasePrice?: number;
   expiryDate?: string;
   manufacturingDate?: string;
+  supplierName?: string;
 }
 
 export const getInventory = (): InventoryItem[] => {
