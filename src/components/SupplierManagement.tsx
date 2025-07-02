@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { useAuditLog } from '@/contexts/AuditLogContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,8 @@ interface SupplierManagementProps {
 }
 
 const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
+  const { logAction } = useAuditLog();
+  
   // --- New state for adding supplies ---
   const [newSupply, setNewSupply] = useState<{ name: string; cost: number; quantity: number }>({
     name: '',
@@ -40,151 +42,6 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
     amount: 0,
     invoice: '',
   });
-
-  // --- Handler to add a new order to the supplier and update inventory ---
-  const handleAddOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSupplier) return;
-    if (!newOrder.items || newOrder.amount <= 0 || !newOrder.invoice) return;
-    const itemsArr = newOrder.items.split(',').map(x => x.trim()).filter(Boolean);
-    if (itemsArr.length === 0) return;
-
-    // Append order to supplier's purchases
-    const updatedSuppliers = suppliers.map(sup => {
-      if (sup.id === selectedSupplier.id) {
-        return {
-          ...sup,
-          purchases: [
-            ...sup.purchases,
-            {
-              date: new Date().toISOString().split('T')[0],
-              amount: newOrder.amount,
-              items: newOrder.items,
-              invoice: newOrder.invoice,
-            },
-          ],
-        };
-      }
-      return sup;
-    });
-    setSuppliers(updatedSuppliers);
-    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
-
-    // --- Inventory linkage: increase stock for each item ---
-    try {
-      const { getInventory, saveInventory } = require('@/utils/inventoryService');
-      let inventory = getInventory();
-      let updated = false;
-      itemsArr.forEach((itemName: string) => {
-        const inv = inventory.find((inv: any) => inv.name.toLowerCase() === itemName.toLowerCase());
-        if (inv) {
-          inv.stock += 1; // Default add 1 per item in order (for demo, real app would allow qty per item)
-          updated = true;
-        }
-      });
-      if (updated) saveInventory([...inventory]);
-    } catch {}
-
-    setNewOrder({ items: '', amount: 0, invoice: '' });
-  };
-
-  // --- Handler to add a supplied item to the supplier and inventory ---
-  const handleAddSuppliedItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSupplier) return;
-    if (!newSupply.name || newSupply.cost <= 0 || newSupply.quantity <= 0) return;
-
-    // Update supplier's supplies
-    const updatedSuppliers = suppliers.map(sup => {
-      if (sup.id === selectedSupplier.id) {
-        return {
-          ...sup,
-          supplies: [...sup.supplies, { ...newSupply }],
-        };
-      }
-      return sup;
-    });
-    setSuppliers(updatedSuppliers);
-    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
-
-    // --- Inventory linkage ---
-    try {
-      const { getInventory, saveInventory } = require('@/utils/inventoryService');
-      let inventory = getInventory();
-      const existing = inventory.find((inv: any) => inv.name.toLowerCase() === newSupply.name.toLowerCase());
-      if (existing) {
-        // Update stock and price if item exists
-        existing.stock += newSupply.quantity;
-        existing.price = newSupply.cost;
-        saveInventory([...inventory]);
-        window.alert('Inventory updated: Stock increased for ' + newSupply.name);
-      } else {
-        // Add new inventory item
-        const newItem = {
-          id: Date.now(),
-          name: newSupply.name,
-          genericName: '',
-          category: '',
-          stock: newSupply.quantity,
-          minStock: 0,
-          maxStock: 0,
-          purchasePrice: newSupply.cost,
-          price: newSupply.cost,
-          barcode: '',
-          manufacturer: selectedSupplier.companyName,
-          expiryDate: '',
-          manufacturingDate: '',
-        };
-        saveInventory([...inventory, newItem]);
-        window.alert('New item added to inventory: ' + newSupply.name);
-      }
-    } catch (err) {
-      window.alert('Error updating inventory.');
-    }
-
-    setNewSupply({ name: '', cost: 0, quantity: 1 });
-  };
-
-  // --- Handler for "View in Inventory" ---
-  const handleViewInInventory = (item: any) => {
-    // For demo/local: just alert the user. In a full app, would scroll or highlight in inventory UI.
-    window.alert('View in Inventory: ' + item.name);
-  };
-
-  // --- Handler for "Add to Inventory" ---
-  const handleAddToInventory = (item: any) => {
-    try {
-      const { getInventory, saveInventory } = require('@/utils/inventoryService');
-      let inventory = getInventory();
-      const existing = inventory.find((inv: any) => inv.name.toLowerCase() === item.name.toLowerCase());
-      if (existing) {
-        existing.stock += item.quantity;
-        existing.price = item.cost;
-        saveInventory([...inventory]);
-        window.alert('Inventory updated: Stock increased for ' + item.name);
-      } else {
-        const newItem = {
-          id: Date.now(),
-          name: item.name,
-          genericName: '',
-          category: '',
-          stock: item.quantity,
-          minStock: 0,
-          maxStock: 0,
-          purchasePrice: item.cost,
-          price: item.cost,
-          barcode: '',
-          manufacturer: selectedSupplier ? selectedSupplier.companyName : '',
-          expiryDate: '',
-          manufacturingDate: '',
-        };
-        saveInventory([...inventory, newItem]);
-        window.alert('New item added to inventory: ' + item.name);
-      }
-    } catch (err) {
-      window.alert('Error updating inventory.');
-    }
-  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
@@ -338,11 +195,39 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
 
   const handleSaveSupplier = (supplierData: any) => {
     if (editingSupplier) {
-      setSuppliers(suppliers.map(s => s.id === supplierData.id ? supplierData : s));
+      // Update existing supplier
+      const updatedSuppliers = suppliers.map(supplier => 
+        supplier.id === editingSupplier.id ? supplierData : supplier
+      );
+      setSuppliers(updatedSuppliers);
+      
+      logAction('EDIT_SUPPLIER', 
+        isUrdu ? `سپلائر اپ ڈیٹ کیا گیا: ${supplierData.companyName}` : `Updated supplier: ${supplierData.companyName}`,
+        'supplier',
+        editingSupplier.id.toString()
+      );
     } else {
-      setSuppliers([...suppliers, supplierData]);
+      // Add new supplier
+      const newSupplier = {
+        ...supplierData,
+        id: Date.now(),
+        totalPurchases: 0,
+        pendingPayments: 0,
+        lastOrder: '',
+        status: 'active',
+        purchases: []
+      };
+      setSuppliers([...suppliers, newSupplier]);
+      
+      logAction('ADD_SUPPLIER', 
+        isUrdu ? `نیا سپلائر شامل کیا گیا: ${supplierData.companyName}` : `Added new supplier: ${supplierData.companyName}`,
+        'supplier',
+        newSupplier.id.toString()
+      );
     }
+    
     setEditingSupplier(null);
+    setShowForm(false);
   };
 
   const handleEditSupplier = (supplier: any) => {
@@ -350,10 +235,179 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
     setShowForm(true);
   };
 
-  const handleDeleteSupplier = (supplierId: number) => {
-    setSuppliers(suppliers.filter(s => s.id !== supplierId));
-    if (selectedSupplier?.id === supplierId) {
-      setSelectedSupplier(null);
+  const handleDeleteSupplier = (id: number) => {
+    if (window.confirm(isUrdu ? 'کیا آپ واقعی یہ سپلائر حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this supplier?')) {
+      const supplierToDelete = suppliers.find(s => s.id === id);
+      const updatedSuppliers = suppliers.filter(supplier => supplier.id !== id);
+      setSuppliers(updatedSuppliers);
+      
+      logAction('DELETE_SUPPLIER', 
+        isUrdu ? `سپلائر حذف کیا گیا: ${supplierToDelete?.companyName}` : `Deleted supplier: ${supplierToDelete?.companyName}`,
+        'supplier',
+        id.toString()
+      );
+      
+      if (selectedSupplier?.id === id) {
+        setSelectedSupplier(null);
+      }
+    }
+  };
+
+  // --- Handler to add a new order to the supplier and update inventory ---
+  const handleAddOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSupplier) return;
+    if (!newOrder.items || newOrder.amount <= 0 || !newOrder.invoice) return;
+    
+    const itemsArr = newOrder.items.split(',').map(x => x.trim()).filter(Boolean);
+    if (itemsArr.length === 0) return;
+
+    // Append order to supplier's purchases
+    const updatedSuppliers = suppliers.map(sup => {
+      if (sup.id === selectedSupplier.id) {
+        return {
+          ...sup,
+          purchases: [
+            ...sup.purchases,
+            {
+              date: new Date().toISOString().split('T')[0],
+              amount: newOrder.amount,
+              items: newOrder.items,
+              invoice: newOrder.invoice,
+            },
+          ],
+        };
+      }
+      return sup;
+    });
+    setSuppliers(updatedSuppliers);
+    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
+
+    logAction('ADD_ORDER', 
+      isUrdu ? `نیا آرڈر شامل کیا گیا: ${newOrder.invoice}` : `Added new order: ${newOrder.invoice}`,
+      'supplier',
+      selectedSupplier.id.toString()
+    );
+
+    // --- Inventory linkage: increase stock for each item ---
+    try {
+      const { getInventory, saveInventory } = require('@/utils/inventoryService');
+      let inventory = getInventory();
+      let updated = false;
+      itemsArr.forEach((itemName: string) => {
+        const inv = inventory.find((inv: any) => inv.name.toLowerCase() === itemName.toLowerCase());
+        if (inv) {
+          inv.stock += 1; // Default add 1 per item in order (for demo, real app would allow qty per item)
+          updated = true;
+        }
+      });
+      if (updated) saveInventory([...inventory]);
+    } catch {}
+
+    setNewOrder({ items: '', amount: 0, invoice: '' });
+  };
+
+  // --- Handler to add a supplied item to the supplier and inventory ---
+  const handleAddSuppliedItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSupplier) return;
+    if (!newSupply.name || newSupply.cost <= 0 || newSupply.quantity <= 0) return;
+
+    // Update supplier's supplies
+    const updatedSuppliers = suppliers.map(sup => {
+      if (sup.id === selectedSupplier.id) {
+        return {
+          ...sup,
+          supplies: [...sup.supplies, { ...newSupply }],
+        };
+      }
+      return sup;
+    });
+    setSuppliers(updatedSuppliers);
+    localStorage.setItem('pharmacy_suppliers', JSON.stringify(updatedSuppliers));
+
+    logAction('ADD_SUPPLIED_ITEM', 
+      isUrdu ? `نیا سپلائی کا سامان شامل کیا گیا: ${newSupply.name}` : `Added new supplied item: ${newSupply.name}`,
+      'supplier',
+      selectedSupplier.id.toString()
+    );
+
+    // --- Inventory linkage ---
+    try {
+      const { getInventory, saveInventory } = require('@/utils/inventoryService');
+      let inventory = getInventory();
+      const existing = inventory.find((inv: any) => inv.name.toLowerCase() === newSupply.name.toLowerCase());
+      if (existing) {
+        // Update stock and price if item exists
+        existing.stock += newSupply.quantity;
+        existing.price = newSupply.cost;
+        saveInventory([...inventory]);
+        window.alert('Inventory updated: Stock increased for ' + newSupply.name);
+      } else {
+        // Add new inventory item
+        const newItem = {
+          id: Date.now(),
+          name: newSupply.name,
+          genericName: '',
+          category: '',
+          stock: newSupply.quantity,
+          minStock: 0,
+          maxStock: 0,
+          purchasePrice: newSupply.cost,
+          price: newSupply.cost,
+          barcode: '',
+          manufacturer: selectedSupplier.companyName,
+          expiryDate: '',
+          manufacturingDate: '',
+        };
+        saveInventory([...inventory, newItem]);
+        window.alert('New item added to inventory: ' + newSupply.name);
+      }
+    } catch (err) {
+      window.alert('Error updating inventory.');
+    }
+
+    setNewSupply({ name: '', cost: 0, quantity: 1 });
+  };
+
+  // --- Handler for "View in Inventory" ---
+  const handleViewInInventory = (item: any) => {
+    // For demo/local: just alert the user. In a full app, would scroll or highlight in inventory UI.
+    window.alert('View in Inventory: ' + item.name);
+  };
+
+  // --- Handler for "Add to Inventory" ---
+  const handleAddToInventory = (item: any) => {
+    try {
+      const { getInventory, saveInventory } = require('@/utils/inventoryService');
+      let inventory = getInventory();
+      const existing = inventory.find((inv: any) => inv.name.toLowerCase() === item.name.toLowerCase());
+      if (existing) {
+        existing.stock += item.quantity;
+        existing.price = item.cost;
+        saveInventory([...inventory]);
+        window.alert('Inventory updated: Stock increased for ' + item.name);
+      } else {
+        const newItem = {
+          id: Date.now(),
+          name: item.name,
+          genericName: '',
+          category: '',
+          stock: item.quantity,
+          minStock: 0,
+          maxStock: 0,
+          purchasePrice: item.cost,
+          price: item.cost,
+          barcode: '',
+          manufacturer: selectedSupplier ? selectedSupplier.companyName : '',
+          expiryDate: '',
+          manufacturingDate: '',
+        };
+        saveInventory([...inventory, newItem]);
+        window.alert('New item added to inventory: ' + item.name);
+      }
+    } catch (err) {
+      window.alert('Error updating inventory.');
     }
   };
 

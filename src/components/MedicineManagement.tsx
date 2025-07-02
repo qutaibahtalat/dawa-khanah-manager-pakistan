@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { useAuditLog } from '@/contexts/AuditLogContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,7 @@ const loadMedicinesFromLocal = () => {
 };
 
 const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
+  const { logAction } = useAuditLog();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -90,8 +91,15 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
 
   const handleDeleteMedicine = (id: number) => {
     if (window.confirm(isUrdu ? 'کیا آپ واقعی یہ دوا حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this medicine?')) {
+      const medicineToDelete = medicines.find(m => m.id === id);
       const updatedMedicines = medicines.filter(medicine => medicine.id !== id);
       setMedicines(updatedMedicines);
+      
+      logAction('DELETE_MEDICINE', 
+        isUrdu ? `دوا حذف کی گئی: ${medicineToDelete?.name}` : `Deleted medicine: ${medicineToDelete?.name}`,
+        'medicine',
+        id.toString()
+      );
       
       toast({
         title: isUrdu ? 'کامیابی' : 'Success',
@@ -152,13 +160,24 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
 
     let updatedMedicines;
     if (editingId) {
-      // Update existing medicine
+      const oldMedicine = medicines.find(m => m.id === editingId);
       updatedMedicines = medicines.map(medicine => 
         medicine.id === editingId ? medicineData : medicine
       );
+      
+      logAction('EDIT_MEDICINE', 
+        isUrdu ? `دوا اپ ڈیٹ کی گئی: ${medicineData.name}` : `Updated medicine: ${medicineData.name}`,
+        'medicine',
+        editingId.toString()
+      );
     } else {
-      // Add new medicine
       updatedMedicines = [...medicines, medicineData];
+      
+      logAction('ADD_MEDICINE', 
+        isUrdu ? `نئی دوا شامل کی گئی: ${medicineData.name}` : `Added new medicine: ${medicineData.name}`,
+        'medicine',
+        medicineData.id.toString()
+      );
     }
     setMedicines(updatedMedicines);
     

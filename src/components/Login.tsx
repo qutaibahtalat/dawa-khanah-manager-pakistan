@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShieldCheck, Pill } from 'lucide-react';
+import { useAuditLog } from '@/contexts/AuditLogContext';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -16,6 +16,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const { logAction } = useAuditLog();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +31,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
         name: credentials.username === 'admin' ? 'Administrator' : 'Pharmacist'
       };
       onLogin(user);
+      
+      // Log the login action
+      logAction('LOGIN', 
+        isUrdu ? `${user.name} نے لاگ ان کیا` : `${user.name} logged in`,
+        'user',
+        user.id.toString()
+      );
+      
       setLoading(false);
     }, 1000);
   };

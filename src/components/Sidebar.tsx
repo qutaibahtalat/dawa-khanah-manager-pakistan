@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
@@ -96,12 +95,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'prescriptions', label: t.prescriptions, icon: FileText },
     { id: 'customers', label: t.customers, icon: Users },
     { id: 'suppliers', label: t.suppliers, icon: Building },
-    { id: 'branches', label: t.branches, icon: Building2 },
     { id: 'staff-attendance', label: t.staffAttendance, icon: UserCheck },
     { id: 'tax-module', label: t.taxModule, icon: Receipt },
     { id: 'enhanced-reports', label: t.enhancedReports, icon: BarChart3 },
     { id: 'returns', label: t.returns, icon: ArrowLeftRight },
-    { id: 'reports', label: t.reports, icon: FileBarChart },
     { id: 'audit-logs', label: t.auditLogs, icon: Clock },
     { id: 'expenses', label: t.expenses, icon: Calculator },
     { id: 'settings', label: t.settings, icon: Settings }

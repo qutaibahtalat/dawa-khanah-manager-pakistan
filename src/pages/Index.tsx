@@ -23,6 +23,7 @@ import InventoryAndReturns from '../components/InventoryAndReturns';
 import ReturnsPage from '../components/ReturnsPage';
 import UserManagement from '../components/UserManagement';
 import { offlineManager } from '../utils/offlineManager';
+import { useAuditLog } from '../contexts/AuditLogContext';
 
 const Index = () => {
   // Load user from localStorage on initial render
@@ -30,6 +31,8 @@ const Index = () => {
     const savedUser = localStorage.getItem('pharmacy_user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
+  
+  const { logAction } = useAuditLog();
   
   const [activeModule, setActiveModule] = useState('dashboard');
   const [isUrdu, setIsUrdu] = useState(false);
@@ -43,8 +46,18 @@ const Index = () => {
 
   // Handle user logout
   const handleLogout = () => {
-    setCurrentUser(null);
+    // Log the logout action before clearing user data
+    if (currentUser) {
+      logAction('LOGOUT', 
+        isUrdu ? `${currentUser.name} نے لاگ آؤٹ کیا` : `${currentUser.name} logged out`,
+        'user',
+        currentUser.id.toString()
+      );
+    }
+    
     localStorage.removeItem('pharmacy_user');
+    setCurrentUser(null);
+    setActiveModule('dashboard');
   };
 
   // Initialize offline capabilities

@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useAuditLog } from '@/contexts/AuditLogContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ interface AuditLogsProps {
 }
 
 const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
+  const { logs } = useAuditLog();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState('all');
   const [isExporting, setIsExporting] = useState(false);
@@ -52,55 +53,17 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
 
   const t = isUrdu ? text.ur : text.en;
 
-  // Sample audit log data
-  const auditLogs = [
-    {
-      id: 1,
-      user: 'Admin',
-      action: 'ADD_MEDICINE',
-      entityId: 'MED_001',
-      timestamp: '2024-06-11 14:30:25',
-      details: 'Added Panadol Extra to inventory'
-    },
-    {
-      id: 2,
-      user: 'Pharmacist',
-      action: 'SALE_COMPLETE',
-      entityId: 'SALE_154',
-      timestamp: '2024-06-11 14:25:10',
-      details: 'Completed sale worth PKR 450.00'
-    },
-    {
-      id: 3,
-      user: 'Admin',
-      action: 'DELETE_MEDICINE',
-      entityId: 'MED_045',
-      timestamp: '2024-06-11 13:45:30',
-      details: 'Deleted expired medicine batch'
-    },
-    {
-      id: 4,
-      user: 'Manager',
-      action: 'UPDATE_SETTINGS',
-      entityId: 'SETTINGS',
-      timestamp: '2024-06-11 12:15:45',
-      details: 'Updated tax rate to 17%'
-    }
-  ];
-
   const getActionBadgeColor = (action: string) => {
-    switch (action) {
-      case 'ADD_MEDICINE': return 'default';
-      case 'DELETE_MEDICINE': return 'destructive';
-      case 'SALE_COMPLETE': return 'secondary';
-      case 'UPDATE_SETTINGS': return 'outline';
-      default: return 'default';
-    }
+    if (action.includes('DELETE')) return 'destructive';
+    if (action.includes('ADD')) return 'default';
+    if (action.includes('EDIT')) return 'outline';
+    if (action.includes('LOGIN') || action.includes('LOGOUT')) return 'secondary';
+    return 'default';
   };
 
-  const filteredLogs = auditLogs.filter(log =>
+  const filteredLogs = logs.filter(log =>
     (filterAction === 'all' || log.action === filterAction) &&
-    (log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
      log.details.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -109,7 +72,6 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
     try {
       setIsExporting(true);
       
-      // Prepare the export data
       const exportData = {
         title: `Audit_Logs_${new Date().toISOString().split('T')[0]}`,
         headers: [
@@ -121,30 +83,28 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
           'Status'
         ],
         data: filteredLogs.map(log => [
-          log.timestamp,
-          log.user,
+          log.timestamp.toLocaleString(),
+          log.userName,
           log.action.replace('_', ' '),
-          log.entityId,
+          log.entityId || 'N/A',
           log.details,
-          'Completed' // Assuming all logs are completed actions
+          'Completed'
         ]),
         metadata: {
           'Report Type': 'Audit Logs',
           'Total Logs': filteredLogs.length.toString(),
-          'Date Range': 'All Time', // Could be dynamic based on filter
+          'Date Range': 'All Time',
           'Generated At': new Date().toLocaleString(),
-          'Branch': 'Main Branch' // Could be dynamic in a real app
+          'Branch': 'Main Branch'
         }
       };
 
-      // Call the appropriate export function
       if (format === 'pdf') {
         reportExporter.exportToPDF(exportData);
       } else {
         reportExporter.exportToExcel(exportData);
       }
 
-      // Show success message
       toast({
         title: isUrdu ? 'لاگز ایکسپورٹ ہو گئے' : 'Logs Exported',
         description: isUrdu 
@@ -215,10 +175,14 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
           className="px-3 py-2 border border-input rounded-md bg-background"
         >
           <option value="all">{t.filterAll}</option>
+          <option value="LOGIN">Login</option>
+          <option value="LOGOUT">Logout</option>
           <option value="ADD_MEDICINE">Add Medicine</option>
+          <option value="EDIT_MEDICINE">Edit Medicine</option>
           <option value="DELETE_MEDICINE">Delete Medicine</option>
-          <option value="SALE_COMPLETE">Sale Complete</option>
-          <option value="UPDATE_SETTINGS">Update Settings</option>
+          <option value="ADD_SUPPLIER">Add Supplier</option>
+          <option value="EDIT_SUPPLIER">Edit Supplier</option>
+          <option value="DELETE_SUPPLIER">Delete Supplier</option>
         </select>
       </div>
 
@@ -240,7 +204,7 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium">{log.user}</span>
+                      <span className="font-medium">{log.userName}</span>
                       <Badge variant={getActionBadgeColor(log.action) as any}>
                         {log.action.replace('_', ' ')}
                       </Badge>
@@ -248,8 +212,8 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ isUrdu }) => {
                     <p className="text-sm text-gray-600">{log.details}</p>
                     <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
                       <Calendar className="h-3 w-3" />
-                      <span>{log.timestamp}</span>
-                      <span>Entity: {log.entityId}</span>
+                      <span>{log.timestamp.toLocaleString()}</span>
+                      {log.entityId && <span>Entity: {log.entityId}</span>}
                     </div>
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { InventoryProvider } from "./contexts/InventoryContext";
+import { AuditLogProvider } from "./contexts/AuditLogContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -17,13 +18,15 @@ const App = () => (
       <Sonner />
       <SettingsProvider>
         <InventoryProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <AuditLogProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </AuditLogProvider>
         </InventoryProvider>
       </SettingsProvider>
     </TooltipProvider>
