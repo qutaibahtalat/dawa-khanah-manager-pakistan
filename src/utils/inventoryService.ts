@@ -12,6 +12,8 @@ export interface InventoryItem {
   minStock?: number;
   maxStock?: number;
   purchasePrice?: number;
+  salePrice?: number;
+  batchNo?: string;
   expiryDate?: string;
   manufacturingDate?: string;
   supplierName?: string;
@@ -19,13 +21,22 @@ export interface InventoryItem {
 
 export const getInventory = (): InventoryItem[] => {
   if (typeof window === 'undefined') return [];
-  const saved = localStorage.getItem(INVENTORY_STORAGE_KEY);
-  return saved ? JSON.parse(saved) : [];
+  try {
+    const saved = localStorage.getItem(INVENTORY_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.error('Error reading from localStorage:', error);
+    return [];
+  }
 };
 
 export const saveInventory = (items: InventoryItem[]): void => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(items));
+    try {
+      localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.error('Error writing to localStorage:', error);
+    }
   }
 };
 

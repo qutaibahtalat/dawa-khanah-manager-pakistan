@@ -6,8 +6,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { InventoryProvider } from "./contexts/InventoryContext";
 import { AuditLogProvider } from "./contexts/AuditLogContext";
+import { DataProvider } from "./contexts/DataContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import EnhancedReports from "./components/EnhancedReports";
 
 const queryClient = new QueryClient();
 
@@ -19,13 +21,16 @@ const App = () => (
       <SettingsProvider>
         <InventoryProvider>
           <AuditLogProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+            <DataProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/analytics" element={<EnhancedReports isUrdu={false} />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </DataProvider>
           </AuditLogProvider>
         </InventoryProvider>
       </SettingsProvider>

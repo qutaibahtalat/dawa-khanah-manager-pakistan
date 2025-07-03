@@ -19,7 +19,8 @@ import {
   FileText,
   BarChart3,
   Database,
-  ArrowLeftRight
+  ArrowLeftRight,
+  LineChart
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -89,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const allMenuItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'medicines', label: t.medicines, icon: Package },
-    { id: 'medicine-database', label: t.medicineDatabase, icon: Database },
+    
     { id: 'pos', label: t.pos, icon: ShoppingCart },
     { id: 'inventory', label: t.inventory, icon: Warehouse },
     { id: 'prescriptions', label: t.prescriptions, icon: FileText },

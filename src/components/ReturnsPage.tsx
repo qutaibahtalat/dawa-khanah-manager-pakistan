@@ -157,6 +157,8 @@ const ReturnsPage: FC<ReturnsPageProps> = ({ isUrdu }) => {
 
       if (inventoryUpdated) {
         saveInventory(updatedInventory);
+        // Trigger a real-time UI update in other tabs/windows
+        window.dispatchEvent(new Event('storage'));
         return true;
       }
       return false;

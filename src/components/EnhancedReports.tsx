@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,10 +26,15 @@ import {
   Download,
   Calendar,
   Filter,
-  Loader2
+  Loader2,
+  TrendingDown
 } from 'lucide-react';
 import { reportExporter } from '@/utils/reportExporter';
 import { toast } from '@/components/ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { fetchRealTimeAnalytics } from '@/services/analyticsService';
 
 interface EnhancedReportsProps {
   isUrdu: boolean;
@@ -39,8 +43,99 @@ interface EnhancedReportsProps {
 const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
   const [dateRange, setDateRange] = useState({ from: '2024-12-01', to: '2024-12-31' });
   const [isExporting, setIsExporting] = useState(false);
+  const [expenseData, setExpenseData] = useState<any[]>([]);
+  const [profitData, setProfitData] = useState<any>({});
+  const [filter, setFilter] = useState({
+    interval: 'month', // 'day', 'week', 'month', 'year'
+    year: new Date().getFullYear().toString(),
+    month: (new Date().getMonth() + 1).toString().padStart(2, '0'),
+    week: '',
+    dateRange: { from: '', to: '' },
+    expenseType: 'all',
+    minAmount: 0
+  });
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadExpenseData = () => {
+      try {
+        const expenses = JSON.parse(localStorage.getItem('pharmacy_expenses') || '[]');
+        setExpenseData(expenses);
+        
+        // Calculate profit (sample calculation - adjust based on your actual sales data)
+        const sales = JSON.parse(localStorage.getItem('pharmacy_sales') || '[]');
+        const totalRevenue = sales.reduce((sum: number, sale: any) => sum + sale.total, 0);
+        const totalExpenses = expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+        
+        setProfitData({
+          totalRevenue,
+          totalExpenses,
+          profit: totalRevenue - totalExpenses
+        });
+      } catch (err) {
+        console.error('Error loading expense data:', err);
+      }
+    };
+    
+    loadExpenseData();
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      const data = await fetchRealTimeAnalytics();
+      setAnalytics(data);
+      setLoading(false);
+    };
+    
+    loadData();
+    
+    // Refresh data every 30 seconds
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Filter expenses based on current filters
+  const filteredExpenses = expenseData.filter(expense => {
+    const matchesDate = !filter.dateRange.from || !filter.dateRange.to || 
+      (expense.date >= filter.dateRange.from && expense.date <= filter.dateRange.to);
+    const matchesType = filter.expenseType === 'all' || expense.type === filter.expenseType;
+    const matchesAmount = expense.amount >= filter.minAmount;
+    return matchesDate && matchesType && matchesAmount;
+  });
+
+  // Add expense type distribution data
+  const expenseTypeData = expenseData.reduce((acc, expense) => {
+    const existing = acc.find(item => item.name === expense.type);
+    if (existing) {
+      existing.value += expense.amount;
+    } else {
+      acc.push({ name: expense.type, value: expense.amount });
+    }
+    return acc;
+  }, [] as { name: string; value: number }[]);
+
+  // Add expense trend data (monthly)
+  const monthlyExpenseData = expenseData.reduce((acc, expense) => {
+    const month = expense.date.substring(0, 7); // YYYY-MM
+    const existing = acc.find(item => item.month === month);
+    if (existing) {
+      existing.amount += expense.amount;
+    } else {
+      acc.push({ month, amount: expense.amount });
+    }
+    return acc;
+  }, [] as { month: string; amount: number }[]).sort((a, b) => a.month.localeCompare(b.month));
 
   const text = {
+    filterBy: { en: 'Filter By', ur: 'فلٹر کریں' },
+    interval: { en: 'Interval', ur: 'وقفہ' },
+    day: { en: 'Day', ur: 'دن' },
+    week: { en: 'Week', ur: 'ہفتہ' },
+    month: { en: 'Month', ur: 'مہینہ' },
+    year: { en: 'Year', ur: 'سال' },
+    print: { en: 'Print Report', ur: 'رپورٹ پرنٹ کریں' },
     en: {
       title: 'Enhanced Reports & Analytics',
       salesReport: 'Sales Report',
@@ -56,7 +151,13 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
       dailySales: 'Daily Sales',
       monthlySales: 'Monthly Sales',
       categoryWise: 'Category-wise Sales',
-      lowStock: 'Low Stock Items'
+      lowStock: 'Low Stock Items',
+      totalExpenses: 'Total Expenses',
+      totalRevenue: 'Total Revenue',
+      netProfit: 'Net Profit',
+      profitMargin: 'Profit Margin',
+      selectStartDate: 'Select Start Date',
+      selectEndDate: 'Select End Date'
     },
     ur: {
       title: 'بہتر رپورٹس اور تجزیات',
@@ -73,7 +174,13 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
       dailySales: 'یومیہ فروخت',
       monthlySales: 'ماہانہ فروخت',
       categoryWise: 'کیٹگری کے مطابق فروخت',
-      lowStock: 'کم اسٹاک آئٹمز'
+      lowStock: 'کم اسٹاک آئٹمز',
+      totalExpenses: 'کل اخراجات',
+      totalRevenue: 'کل آمدنی',
+      netProfit: 'خالص منافع',
+      profitMargin: 'منافع کا تناسب',
+      selectStartDate: 'شروع کی تاریخ منتخب کریں',
+      selectEndDate: 'آخر کی تاریخ منتخب کریں'
     }
   };
 
@@ -169,53 +276,232 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
     }
   };
 
+  // Helper: get filtered analytics data by interval
+  function getFilteredAnalytics() {
+    if (!analytics || !analytics.salesData) return { sales: [], profit: [], expenses: [] };
+    const { salesData, profitData, expenseData: allExpenses } = analytics;
+    let filteredSales = salesData;
+    let filteredProfit = profitData;
+    let filteredExpenses = allExpenses;
+    const now = new Date();
+    if (filter.interval === 'year') {
+      filteredSales = salesData.filter((item: any) => new Date(item.date).getFullYear().toString() === filter.year);
+      filteredProfit = profitData.filter((item: any) => new Date(item.date).getFullYear().toString() === filter.year);
+      filteredExpenses = allExpenses.filter((item: any) => new Date(item.date).getFullYear().toString() === filter.year);
+    } else if (filter.interval === 'month') {
+      filteredSales = salesData.filter((item: any) => {
+        const d = new Date(item.date);
+        return d.getFullYear().toString() === filter.year && (d.getMonth() + 1).toString().padStart(2, '0') === filter.month;
+      });
+      filteredProfit = profitData.filter((item: any) => {
+        const d = new Date(item.date);
+        return d.getFullYear().toString() === filter.year && (d.getMonth() + 1).toString().padStart(2, '0') === filter.month;
+      });
+      filteredExpenses = allExpenses.filter((item: any) => {
+        const d = new Date(item.date);
+        return d.getFullYear().toString() === filter.year && (d.getMonth() + 1).toString().padStart(2, '0') === filter.month;
+      });
+    } else if (filter.interval === 'week') {
+      // Week filtering (ISO week)
+      const getWeek = (date: Date) => {
+        const d = new Date(date.getTime());
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+        const yearStart = new Date(d.getFullYear(), 0, 1);
+        const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        return weekNo;
+      };
+      filteredSales = salesData.filter((item: any) => {
+        const d = new Date(item.date);
+        return d.getFullYear().toString() === filter.year && getWeek(d).toString() === filter.week;
+      });
+      filteredProfit = profitData.filter((item: any) => {
+        const d = new Date(item.date);
+        return d.getFullYear().toString() === filter.year && getWeek(d).toString() === filter.week;
+      });
+      filteredExpenses = allExpenses.filter((item: any) => {
+        const d = new Date(item.date);
+        return d.getFullYear().toString() === filter.year && getWeek(d).toString() === filter.week;
+      });
+    } else if (filter.interval === 'day') {
+      filteredSales = salesData.filter((item: any) => new Date(item.date).toISOString().split('T')[0] === filter.dateRange.from);
+      filteredProfit = profitData.filter((item: any) => new Date(item.date).toISOString().split('T')[0] === filter.dateRange.from);
+      filteredExpenses = allExpenses.filter((item: any) => new Date(item.date).toISOString().split('T')[0] === filter.dateRange.from);
+    }
+    return { sales: filteredSales, profit: filteredProfit, expenses: filteredExpenses };
+  }
+
+  // Generate options for year/month/week
+  const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
+  const months = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const weeks = Array.from({ length: 53 }, (_, i) => (i + 1).toString());
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            onClick={() => handleExport('pdf')}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            {t.exportPDF}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => handleExport('excel')}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            {t.exportExcel}
-          </Button>
-        </div>
+      {/* Interval Filter Controls */}
+      <div className="flex items-center space-x-4 mb-4">
+        <label>{text.filterBy[isUrdu ? 'ur' : 'en']}:</label>
+        <Select value={filter.interval} onValueChange={val => setFilter(f => ({ ...f, interval: val }))}>
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder={text.interval[isUrdu ? 'ur' : 'en']} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="day">{text.day[isUrdu ? 'ur' : 'en']}</SelectItem>
+            <SelectItem value="week">{text.week[isUrdu ? 'ur' : 'en']}</SelectItem>
+            <SelectItem value="month">{text.month[isUrdu ? 'ur' : 'en']}</SelectItem>
+            <SelectItem value="year">{text.year[isUrdu ? 'ur' : 'en']}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filter.year} onValueChange={val => setFilter(f => ({ ...f, year: val }))}>
+          <SelectTrigger className="w-24">
+            <SelectValue placeholder={text.year[isUrdu ? 'ur' : 'en']} />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {(filter.interval === 'month') && (
+          <Select value={filter.month} onValueChange={val => setFilter(f => ({ ...f, month: val }))}>
+            <SelectTrigger className="w-24">
+              <SelectValue placeholder={text.month[isUrdu ? 'ur' : 'en']} />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {(filter.interval === 'week') && (
+          <Select value={filter.week} onValueChange={val => setFilter(f => ({ ...f, week: val }))}>
+            <SelectTrigger className="w-24">
+              <SelectValue placeholder={text.week[isUrdu ? 'ur' : 'en']} />
+            </SelectTrigger>
+            <SelectContent>
+              {weeks.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {(filter.interval === 'day') && (
+          <DatePicker
+            selected={filter.dateRange.from ? new Date(filter.dateRange.from) : null}
+            onChange={date => setFilter(f => ({ ...f, dateRange: { ...f.dateRange, from: date ? date.toISOString().split('T')[0] : '' } }))}
+            dateFormat="yyyy-MM-dd"
+            placeholderText={t.selectStartDate}
+            className="w-36 p-2 border rounded-md"
+            isClearable
+          />
+        )}
+        <Button variant="outline" onClick={() => setFilter({ ...filter })}>
+          <Filter className="h-4 w-4 mr-2" />
+          Apply
+        </Button>
+        <Button variant="outline" onClick={() => window.print()}>
+          <Download className="h-4 w-4 mr-2" />
+          {text.print[isUrdu ? 'ur' : 'en']}
+        </Button>
+      </div>
+
+
+
+      {/* Profit Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-green-50 dark:bg-green-900/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 dark:text-green-400">{t.totalRevenue}</p>
+                <p className="text-2xl font-bold">
+                  {loading ? 'Loading...' : `PKR ${analytics?.totalRevenue?.toLocaleString() || '0'}`}
+                </p>
+                <p className="text-xs text-green-500">+12.5% from last month</p>
+              </div>
+              <TrendingUp className="h-6 w-6 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-red-50 dark:bg-red-900/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-red-600 dark:text-red-400">{t.totalExpenses}</p>
+                <p className="text-2xl font-bold">
+                  {loading ? 'Loading...' : `PKR ${analytics?.totalExpenses?.toLocaleString() || '0'}`}
+                </p>
+                <p className="text-xs text-red-500">+12.5% from last month</p>
+              </div>
+              <TrendingDown className="h-6 w-6 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-blue-50 dark:bg-blue-900/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 dark:text-blue-400">{t.netProfit}</p>
+                <p className="text-2xl font-bold">
+                  {loading ? 'Loading...' : `PKR ${analytics?.netProfit?.toLocaleString() || '0'}`}
+                  <span className={`ml-2 text-sm ${analytics?.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {loading ? '' : `(${analytics?.totalRevenue ? ((analytics?.netProfit / analytics?.totalRevenue) * 100).toFixed(1) : '0'}%)`}
+                  </span>
+                </p>
+              </div>
+              {analytics?.netProfit >= 0 ? (
+                <TrendingUp className="h-6 w-6 text-blue-600" />
+              ) : (
+                <TrendingDown className="h-6 w-6 text-blue-600" />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-purple-50 dark:bg-purple-900/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 dark:text-purple-400">{t.profitMargin}</p>
+                <p className="text-2xl font-bold">
+                  {loading ? 'Loading...' : `${analytics?.totalRevenue ? ((analytics?.netProfit / analytics?.totalRevenue) * 100).toFixed(1) : '0'}%`}
+                </p>
+              </div>
+              <DollarSign className="h-6 w-6 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Date Range Filter */}
       <div className="flex items-center space-x-4">
         <Calendar className="h-5 w-5 text-gray-400" />
-        <Input
-          type="date"
-          value={dateRange.from}
-          onChange={(e) => setDateRange({...dateRange, from: e.target.value})}
-          className="w-48"
+        <DatePicker
+          selected={dateRange.from ? new Date(dateRange.from) : null}
+          onChange={(date: Date) => setDateRange({...dateRange, from: date ? date.toISOString().split('T')[0] : ''})}
+          selectsStart
+          startDate={dateRange.from ? new Date(dateRange.from) : null}
+          endDate={dateRange.to ? new Date(dateRange.to) : null}
+          placeholderText={t.selectStartDate}
+          className="w-48 p-2 border rounded-md"
+          dateFormat="yyyy-MM-dd"
+          showMonthDropdown
+          showYearDropdown
+          dropdownMode="select"
+          isClearable
         />
         <span>to</span>
-        <Input
-          type="date"
-          value={dateRange.to}
-          onChange={(e) => setDateRange({...dateRange, to: e.target.value})}
-          className="w-48"
+        <DatePicker
+          selected={dateRange.to ? new Date(dateRange.to) : null}
+          onChange={(date: Date) => setDateRange({...dateRange, to: date ? date.toISOString().split('T')[0] : ''})}
+          selectsEnd
+          startDate={dateRange.from ? new Date(dateRange.from) : null}
+          endDate={dateRange.to ? new Date(dateRange.to) : null}
+          minDate={dateRange.from ? new Date(dateRange.from) : null}
+          placeholderText={t.selectEndDate}
+          className="w-48 p-2 border rounded-md"
+          dateFormat="yyyy-MM-dd"
+          showMonthDropdown
+          showYearDropdown
+          dropdownMode="select"
+          isClearable
         />
         <Button variant="outline">
           <Filter className="h-4 w-4 mr-2" />
@@ -230,7 +516,9 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{t.totalSales}</p>
-                <p className="text-2xl font-bold text-green-600">PKR 1,85,420</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {loading ? 'Loading...' : `PKR ${analytics?.totalSales?.toLocaleString() || '0'}`}
+                </p>
                 <p className="text-xs text-green-500">+12.5% from last month</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
@@ -243,7 +531,9 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{t.totalProfit}</p>
-                <p className="text-2xl font-bold text-blue-600">PKR 46,350</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {loading ? 'Loading...' : `PKR ${analytics?.totalProfit?.toLocaleString() || '0'}`}
+                </p>
                 <p className="text-xs text-blue-500">+8.3% from last month</p>
               </div>
               <TrendingUp className="h-8 w-8 text-blue-600" />
@@ -256,7 +546,9 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{t.topProducts}</p>
-                <p className="text-2xl font-bold text-purple-600">1,605</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {loading ? 'Loading...' : analytics?.topProducts || '0'}
+                </p>
                 <p className="text-xs text-purple-500">Items sold</p>
               </div>
               <Package className="h-8 w-8 text-purple-600" />
@@ -269,7 +561,9 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{t.activeCustomers}</p>
-                <p className="text-2xl font-bold text-orange-600">284</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {loading ? 'Loading...' : analytics?.activeCustomers || '0'}
+                </p>
                 <p className="text-xs text-orange-500">+15 new this month</p>
               </div>
               <Users className="h-8 w-8 text-orange-600" />
@@ -318,11 +612,10 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
                       data={categoryData}
                       cx="50%"
                       cy="50%"
-                      labelLine={false}
-                      label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
+                      label
                     >
                       {categoryData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -385,14 +678,7 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={[
-                    { month: 'Jan', customers: 180 },
-                    { month: 'Feb', customers: 195 },
-                    { month: 'Mar', customers: 220 },
-                    { month: 'Apr', customers: 245 },
-                    { month: 'May', customers: 260 },
-                    { month: 'Jun', customers: 284 }
-                  ]}>
+                  <LineChart data={getCustomerGrowthData(analytics?.customers)}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
@@ -411,11 +697,7 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={[
-                        { name: 'Regular', value: 45 },
-                        { name: 'Premium', value: 30 },
-                        { name: 'New', value: 25 }
-                      ]}
+                      data={getCustomerSegmentData(analytics?.customers)}
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
@@ -423,7 +705,7 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
                       dataKey="value"
                       label
                     >
-                      {categoryData.map((entry, index) => (
+                      {getCustomerSegmentData(analytics?.customers).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -437,6 +719,48 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
       </Tabs>
     </div>
   );
-};
+}
+
+function getCustomerGrowthData(customers: any[] = []) {
+  if (!customers || customers.length === 0) return [];
+  // Group by month (last 6 months)
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`,
+      label: d.toLocaleString('default', { month: 'short' }),
+      year: d.getFullYear(),
+      month: d.getMonth() + 1
+    });
+  }
+  const growth = months.map(m => {
+    const count = customers.filter(c => {
+      const join = c.joinDate || c.createdAt;
+      if (!join) return false;
+      const d = new Date(join);
+      return d.getFullYear() === m.year && d.getMonth() + 1 === m.month;
+    }).length;
+    return { month: m.label, customers: count };
+  });
+  return growth;
+}
+
+function getCustomerSegmentData(customers: any[] = []) {
+  if (!customers || customers.length === 0) return [];
+  // Example: classify by totalPurchases or loyaltyPoints
+  let regular = 0, premium = 0, newcomer = 0;
+  customers.forEach(c => {
+    if (c.totalPurchases >= 20 || c.loyaltyPoints >= 1000) premium++;
+    else if ((c.joinDate || c.createdAt) && new Date(c.joinDate || c.createdAt) > new Date(new Date().setMonth(new Date().getMonth() - 1))) newcomer++;
+    else regular++;
+  });
+  return [
+    { name: 'Regular', value: regular },
+    { name: 'Premium', value: premium },
+    { name: 'New', value: newcomer }
+  ];
+}
 
 export default EnhancedReports;

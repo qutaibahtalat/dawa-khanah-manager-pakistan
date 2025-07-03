@@ -49,6 +49,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   
   // Handle search input change
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +66,22 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       (item.barcode && item.barcode.toLowerCase().includes(term.toLowerCase()))
     );
     setFilteredItems(results);
+
+    // Medicine recommendations if not found in stock
+    if (results.length === 0 && term.trim()) {
+      // Dynamically import full medicine database and search utilities
+      import('../utils/medicineDatabase').then(dbMod => {
+        // Only generate/load the database once (cache in window)
+        if (!(window as any)._fullMedicineDB) {
+          (window as any)._fullMedicineDB = dbMod.generateMedicineDatabase();
+        }
+        const fullDB = (window as any)._fullMedicineDB;
+        const matches = dbMod.searchMedicines(fullDB, term).slice(0, 8);
+        setRecommendations(matches);
+      }).catch(() => setRecommendations([]));
+    } else {
+      setRecommendations([]);
+    }
   };
   
   // Handle barcode scan - this will be defined later in the component
@@ -214,7 +231,6 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     const existingItem = cartItems.find(item => item.id === medicine.id);
     
     if (existingItem) {
-      // Don't add more than available in stock
       if (existingItem.quantity >= medicine.stock) {
         toast({
           title: isUrdu ? 'خریداری کی حد' : 'Purchase Limit',
@@ -225,14 +241,12 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
         });
         return;
       }
-      
       setCartItems(cartItems.map(item =>
         item.id === medicine.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
-      // Check if there's at least 1 item in stock
       if (medicine.stock < 1) {
         toast({
           title: isUrdu ? 'اسٹاک ختم' : 'Out of Stock',
@@ -243,18 +257,11 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
         });
         return;
       }
-      
       setCartItems([...cartItems, { ...medicine, quantity: 1 }]);
     }
-    
-    // Update local state to reflect the change in stock immediately
-    setMedicines(prev => 
-      prev.map(item => 
-        item.id === medicine.id 
-          ? { ...item, stock: Math.max(0, item.stock - 1) } 
-          : item
-      )
-    );
+    // Real-time decrement in inventory (UI and persistent)
+    setInventory(prev => prev.map(item => item.id === medicine.id ? { ...item, stock: Math.max(0, item.stock - 1) } : item));
+    updateItemStock(medicine.id, -1); // persist
   };
 
   const updateQuantity = (id: number, change: number) => {
@@ -268,6 +275,12 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   };
 
   const removeFromCart = (id: number) => {
+    const removedItem = cartItems.find(item => item.id === id);
+    if (removedItem) {
+      // Real-time increment in inventory (UI and persistent)
+      setInventory(prev => prev.map(item => item.id === id ? { ...item, stock: item.stock + removedItem.quantity } : item));
+      updateItemStock(id, removedItem.quantity); // persist
+    }
     setCartItems(cartItems.filter(item => item.id !== id));
   };
 
@@ -438,10 +451,9 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const updateInventory = (items: any[]) => {
     try {
       items.forEach(item => {
-        const medicine = medicines.find(m => m.id === item.id);
-        if (medicine) {
-          updateItemStock(medicine.id, -item.quantity);
-        }
+        // Real-time decrement in inventory (UI and persistent)
+        setInventory(prev => prev.map(inv => inv.id === item.id ? { ...inv, stock: Math.max(0, inv.stock - item.quantity) } : inv));
+        updateItemStock(item.id, -item.quantity);
       });
     } catch (error) {
       console.error('Error updating inventory:', error);
@@ -558,6 +570,28 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
               <Barcode className="h-5 w-5" />
             </button>
           </div>
+
+          {/* Recommendations if no stock match */}
+          {recommendations.length > 0 && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-300 rounded">
+              <div className="font-semibold text-yellow-700 mb-2">{isUrdu ? 'متبادل دستیاب ادویات' : 'Available Alternatives (Generic Suggestions)'}</div>
+              <div className="flex flex-wrap gap-3">
+                {recommendations.map((rec: any) => (
+                  <Card key={rec.id} className="cursor-pointer hover:shadow-md transition-all border-yellow-400">
+                    <CardContent className="p-3">
+                      <div className="font-bold text-yellow-800">{rec.name}</div>
+                      <div className="text-xs text-yellow-700">{rec.genericName}</div>
+                      <div className="text-xs text-yellow-600">{rec.manufacturer}</div>
+                      <div className="text-xs text-gray-700">PKR {rec.price}</div>
+                      <Button size="sm" className="mt-2" onClick={() => addToCart(rec)}>
+                        <Plus className="h-4 w-4 mr-1" /> {isUrdu ? 'کارٹ میں شامل کریں' : 'Add to Cart'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Medicine Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local copies of third-party CSS
+src/components/react-datepicker.css
