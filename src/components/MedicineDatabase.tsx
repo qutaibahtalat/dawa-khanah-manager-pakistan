@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Search, Download, Upload, Filter, BarChart3, AlertTriangle, Package, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,28 +45,54 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
   };
 
   useEffect(() => {
+    const loadMedicineDatabase = async () => {
+      try {
+        setLoading(true);
+        // Check if medicines exist in localStorage
+        const savedMedicines = localStorage.getItem('medicines');
+        
+        if (savedMedicines) {
+          setMedicines(JSON.parse(savedMedicines));
+        } else {
+          // Generate initial database if none exists
+          const generatedMedicines = await generateMedicineDatabase();
+          setMedicines(generatedMedicines);
+          localStorage.setItem('medicines', JSON.stringify(generatedMedicines));
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to load medicine database:', error);
+        setLoading(false);
+      }
+    };
+    
     loadMedicineDatabase();
   }, []);
 
   useEffect(() => {
-    filterMedicines();
-  }, [medicines, searchTerm, selectedCategory]);
-
-  const loadMedicineDatabase = () => {
-    setLoading(true);
-    
-    // Check if database exists in localStorage
-    const storedMedicines = localStorage.getItem('medicine_database');
-    if (storedMedicines) {
-      const parsedMedicines = JSON.parse(storedMedicines);
-      setMedicines(parsedMedicines);
+    if (searchTerm || selectedCategory !== 'all') {
+      let results = medicines;
+      
+      if (searchTerm) {
+        results = searchMedicines(results, searchTerm);
+      }
+      
+      if (selectedCategory !== 'all') {
+        results = results.filter(med => med.category === selectedCategory);
+      }
+      
+      setFilteredMedicines(results.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      ));
     } else {
-      // Generate new database
-      generateDatabase();
+      setFilteredMedicines(medicines.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      ));
     }
-    
-    setLoading(false);
-  };
+  }, [searchTerm, selectedCategory, currentPage, medicines]);
 
   const generateDatabase = () => {
     try {
@@ -107,27 +132,6 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
     }
   };
 
-  const filterMedicines = () => {
-    let filtered = medicines;
-
-    if (searchTerm) {
-      filtered = searchMedicines(filtered, searchTerm);
-    }
-
-    if (selectedCategory !== 'all') {
-      if (selectedCategory === 'low-stock') {
-        filtered = getLowStockMedicines(filtered, 50);
-      } else if (selectedCategory === 'expiring') {
-        filtered = getExpiringMedicines(filtered, 90);
-      } else {
-        filtered = filtered.filter(med => med.category === selectedCategory);
-      }
-    }
-
-    setFilteredMedicines(filtered);
-    setCurrentPage(1);
-  };
-
   const handleExport = () => {
     const exportData = reportExporter.exportInventoryReport(filteredMedicines);
     reportExporter.exportToExcel(exportData);
@@ -157,11 +161,6 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
     'Analgesic', 'Antibiotic', 'Antacid', 'Antihistamine', 'Antidepressant',
     'Antidiabetic', 'Antihypertensive', 'Antiviral', 'Antiseptic', 'Antipyretic'
   ];
-
-  const paginatedMedicines = filteredMedicines.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   const totalPages = Math.ceil(filteredMedicines.length / itemsPerPage);
 
@@ -300,7 +299,7 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedMedicines.map((medicine) => {
+              {filteredMedicines.map((medicine) => {
                 const status = getStockStatus(medicine.quantity);
                 const isExpiring = getExpiringMedicines([medicine], 90).length > 0;
                 

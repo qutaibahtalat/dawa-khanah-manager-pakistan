@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +31,7 @@ import { getInventory, searchInventory, updateItemStock, InventoryItem } from '@
 import { saveSaleToRecent } from '@/utils/salesService';
 import { useSettings } from '@/contexts/SettingsContext';
 import BarcodeScanner from './BarcodeScanner';
+import protectedMedicines from '@/data/protectedMedicines';
 
 interface POSSystemProps {
   isUrdu: boolean;
@@ -50,6 +50,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [discount, setDiscount] = useState<number | string>('');
   
   // Handle search input change
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,40 +229,36 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   }, [customerInfo.phone]);
 
   const addToCart = (medicine: InventoryItem) => {
-    const existingItem = cartItems.find(item => item.id === medicine.id);
-    
-    if (existingItem) {
-      if (existingItem.quantity >= medicine.stock) {
-        toast({
-          title: isUrdu ? 'خریداری کی حد' : 'Purchase Limit',
-          description: isUrdu 
-            ? `صرف ${medicine.stock} اشیاء دستیاب ہیں` 
-            : `Only ${medicine.stock} items available in stock`,
-          variant: 'destructive',
-        });
-        return;
+    if (medicine.stock <= 0) {
+      toast({
+        title: 'Out of stock',
+        description: 'This item is currently out of stock',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Decrease stock immediately
+    const updatedInventory = inventory.map(invItem => {
+      if (invItem.id === medicine.id) {
+        return { ...invItem, stock: invItem.stock - 1 };
       }
-      setCartItems(cartItems.map(item =>
-        item.id === medicine.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
+      return invItem;
+    });
+    
+    setInventory(updatedInventory);
+    
+    // Update cart
+    const existingItem = cartItems.find(cartItem => cartItem.id === medicine.id);
+    if (existingItem) {
+      setCartItems(cartItems.map(cartItem => 
+        cartItem.id === medicine.id 
+          ? { ...cartItem, quantity: cartItem.quantity + 1 } 
+          : cartItem
       ));
     } else {
-      if (medicine.stock < 1) {
-        toast({
-          title: isUrdu ? 'اسٹاک ختم' : 'Out of Stock',
-          description: isUrdu 
-            ? 'یہ دوا اس وقت دستیاب نہیں ہے' 
-            : 'This medicine is currently out of stock',
-          variant: 'destructive',
-        });
-        return;
-      }
       setCartItems([...cartItems, { ...medicine, quantity: 1 }]);
     }
-    // Real-time decrement in inventory (UI and persistent)
-    setInventory(prev => prev.map(item => item.id === medicine.id ? { ...item, stock: Math.max(0, item.stock - 1) } : item));
-    updateItemStock(medicine.id, -1); // persist
   };
 
   const updateQuantity = (id: number, change: number) => {
@@ -339,9 +336,9 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discount = 0;
+  const discountAmount = Number(discount) || 0;
   const loyaltyDiscountAmount = subtotal * (loyaltyDiscount / 100);
-  const taxableAmount = subtotal - discount - loyaltyDiscountAmount;
+  const taxableAmount = subtotal - discountAmount - loyaltyDiscountAmount;
   const taxRate = parseFloat(settings.taxRate) || 0; // Get tax rate from settings
   const tax = taxableAmount * (taxRate / 100); // Calculate tax based on the rate from settings
   const total = taxableAmount + tax;
@@ -395,7 +392,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
         subtotal,
-        discount,
+        discount: discountAmount,
         loyaltyDiscount: loyaltyDiscountAmount,
         tax,
         taxRate: taxRate, // Add tax rate to sale data
@@ -417,6 +414,8 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
           date: new Date().toLocaleDateString()
         });
       });
+      // Dispatch custom event to signal sale completion
+      window.dispatchEvent(new Event('saleCompleted'));
       
       toast({
         title: t.paymentSuccessful,
@@ -485,6 +484,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
     ==========================================
     Subtotal:                   PKR ${saleData.subtotal.toFixed(2).padStart(8)}
     ${saleData.loyaltyDiscount > 0 ? `Loyalty Discount:           PKR ${saleData.loyaltyDiscount.toFixed(2).padStart(8)}\n` : ''}
+    ${saleData.discount > 0 ? `Discount:           PKR ${saleData.discount.toFixed(2).padStart(8)}\n` : ''}
     Tax (${saleData.taxRate}%):              PKR ${saleData.tax.toFixed(2).padStart(8)}
     Total:                      PKR ${saleData.total.toFixed(2).padStart(8)}
     
@@ -532,6 +532,26 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       description: 'Enhanced receipt has been sent to printer',
     });
   };
+
+  const calculateDiscount = () => {
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discountPercent = Number(discount) || 0;
+    return total * (discountPercent / 100);
+  };
+
+  const searchMedicines = (term: string) => {
+    const allMedicines = [...medicines, ...protectedMedicines];
+    return allMedicines.filter(medicine => 
+      medicine.name.toLowerCase().includes(term.toLowerCase()) ||
+      medicine.genericName?.toLowerCase().includes(term.toLowerCase()) ||
+      medicine.barcode?.includes(term)
+    );
+  };
+
+  const recommendedMedicines = [...medicines, ...protectedMedicines]
+    .filter(m => m.stock > 0)
+    .sort((a, b) => b.stock - a.stock)
+    .slice(0, 5);
 
   return (
     <div className="p-6 space-y-6">
@@ -760,7 +780,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-poppins">{t.discount}:</span>
-                  <span className="font-poppins">PKR {discount.toFixed(2)}</span>
+                  <span className="font-poppins">PKR {calculateDiscount().toFixed(2)}</span>
                 </div>
                 {loyaltyDiscountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
@@ -825,21 +845,48 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                 </Select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-2 font-poppins">{t.amountReceived}</label>
+                <Input 
+                  type="number" 
+                  value={amountReceived} 
+                  onChange={(e) => setAmountReceived(e.target.value)}
+                  placeholder="0.00"
+                  className="font-poppins"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 font-poppins">{t.discount}</label>
+                <Input 
+                  type="number" 
+                  value={discount} 
+                  onChange={(e) => setDiscount(e.target.value)}
+                  min="0"
+                  max="100"
+                  className="font-poppins"
+                />
+              </div>
+
               <div className="bg-gray-50 p-4 rounded">
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="font-poppins">{t.subtotal}:</span>
                     <span className="font-poppins">PKR {subtotal.toFixed(2)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="font-poppins">{t.discount}:</span>
+                    <span className="font-poppins">PKR {calculateDiscount().toFixed(2)}</span>
+                  </div>
                   {loyaltyDiscountAmount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span className="font-poppins">{t.loyaltyDiscount}:</span>
-                      <span className="font-poppins">-PKR {loyaltyDiscountAmount.toFixed(2)}</span>
+                      <span className="font-poppins">PKR {loyaltyDiscountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="font-poppins">{t.tax}:</span>
-                    <span className="font-poppins">PKR {tax.toFixed(2)}</span>
+                    <span className="text-sm text-gray-500">{t.tax}:</span>
+                    <span className="font-medium">PKR {tax.toFixed(2)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-bold">
@@ -851,18 +898,6 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
 
               {paymentMethod === 'cash' && (
                 <div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2 font-poppins">
-                      {t.amountReceived}
-                    </label>
-                    <Input
-                      type="number"
-                      value={amountReceived}
-                      onChange={(e) => setAmountReceived(e.target.value)}
-                      placeholder="0.00"
-                      className="font-poppins"
-                    />
-                  </div>
                   {amountReceived && parseFloat(amountReceived) >= total && (
                     <div className="bg-green-50 p-4 rounded mt-2">
                       <div className="flex justify-between">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +25,8 @@ import { MonthYearPicker } from '@/components/ui/month-year-picker';
 import AttendanceForm from './AttendanceForm';
 import StaffForm from './StaffForm';
 import StaffReport from './StaffReport';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/use-toast';
 
 interface StaffAttendanceProps {
   isUrdu: boolean;
@@ -40,11 +41,30 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('attendance');
   const [loadingButton, setLoadingButton] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [salaryData, setSalaryData] = useState<any[]>([]);
+  const [leaveRecords, setLeaveRecords] = useState<any[]>([]);
+  const [deductionRecords, setDeductionRecords] = useState<any[]>([]);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [showDeductionDialog, setShowDeductionDialog] = useState(false);
+  const [showSalaryDialog, setShowSalaryDialog] = useState(false);
+  const [currentStaff, setCurrentStaff] = useState<any>(null);
+  const [leaveData, setLeaveData] = useState({ days: 0, reason: '', type: '' });
+  const [deductionData, setDeductionData] = useState({ amount: 0, reason: '' });
+  const [salaryDataState, setSalaryDataState] = useState({ amount: 0, bonus: 0, month: '' });
+  const [salaryRecords, setSalaryRecords] = useState<any[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   // Load initial data from localStorage or use default data
   const loadInitialData = () => {
     const savedStaff = localStorage.getItem('pharmacy_staff');
     const savedAttendance = localStorage.getItem('pharmacy_attendance');
+    const savedSalaries = localStorage.getItem('pharmacy_salaries');
+    const savedLeaves = localStorage.getItem('pharmacy_leaves');
+    const savedDeductions = localStorage.getItem('pharmacy_deductions');
     
     const defaultStaff = [
       {
@@ -80,12 +100,17 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
 
     return {
       staff: savedStaff ? JSON.parse(savedStaff) : defaultStaff,
-      attendance: savedAttendance ? JSON.parse(savedAttendance) : defaultAttendance
+      attendance: savedAttendance ? JSON.parse(savedAttendance) : defaultAttendance,
+      salaries: savedSalaries ? JSON.parse(savedSalaries) : [],
+      leaves: savedLeaves ? JSON.parse(savedLeaves) : [],
+      deductions: savedDeductions ? JSON.parse(savedDeductions) : []
     };
   };
 
   const [staff, setStaff] = useState(loadInitialData().staff);
-  const [attendanceRecords, setAttendanceRecords] = useState(loadInitialData().attendance);
+  const [salaries, setSalaries] = useState(loadInitialData().salaries);
+  const [leaves, setLeaves] = useState(loadInitialData().leaves);
+  const [deductions, setDeductions] = useState(loadInitialData().deductions);
 
   // Save to localStorage whenever staff or attendance changes
   useEffect(() => {
@@ -95,6 +120,28 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   useEffect(() => {
     localStorage.setItem('pharmacy_attendance', JSON.stringify(attendanceRecords));
   }, [attendanceRecords]);
+
+  useEffect(() => {
+    localStorage.setItem('pharmacy_salaries', JSON.stringify(salaries));
+  }, [salaries]);
+
+  useEffect(() => {
+    localStorage.setItem('pharmacy_leaves', JSON.stringify(leaves));
+  }, [leaves]);
+
+  useEffect(() => {
+    localStorage.setItem('pharmacy_deductions', JSON.stringify(deductions));
+  }, [deductions]);
+
+  useEffect(() => {
+    const savedSalaries = localStorage.getItem('pharmacy_salaries');
+    const savedLeaves = localStorage.getItem('pharmacy_leaves');
+    const savedDeductions = localStorage.getItem('pharmacy_deductions');
+    
+    if (savedSalaries) setSalaryData(JSON.parse(savedSalaries));
+    if (savedLeaves) setLeaveRecords(JSON.parse(savedLeaves));
+    if (savedDeductions) setDeductionRecords(JSON.parse(savedDeductions));
+  }, []);
 
   const text = {
     en: {
@@ -321,6 +368,280 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
     return <Badge variant={variants[status] || 'outline'}>{t[status as keyof typeof t] || status}</Badge>;
   };
 
+  const handleClockInOut = async (staffId: string) => {
+    setLoadingButton(`clock-${staffId}`);
+    
+    try {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      
+      // Check if staff has already clocked in today
+      const existingRecord = attendanceRecords.find(
+        (record) => record.staffId === staffId && record.date === today
+      );
+      
+      if (existingRecord) {
+        // Clock out
+        const updatedRecord = {
+          ...existingRecord,
+          clockOut: now.toISOString(),
+          hoursWorked: calculateHoursWorked(existingRecord.clockIn, now.toISOString())
+        };
+        
+        // Update attendance record
+        const updatedAttendance = attendanceRecords.map(record => 
+          record.id === existingRecord.id ? updatedRecord : record
+        );
+        
+        setAttendanceRecords(updatedAttendance);
+        localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedAttendance));
+      } else {
+        // Clock in
+        const newRecord = {
+          id: Math.random().toString(36).substr(2, 9),
+          staffId,
+          date: today,
+          clockIn: now.toISOString(),
+          status: 'Present'
+        };
+        
+        setAttendanceRecords([...attendanceRecords, newRecord]);
+        localStorage.setItem(
+          'pharmacy_attendance', 
+          JSON.stringify([...attendanceRecords, newRecord])
+        );
+      }
+    } finally {
+      setLoadingButton(null);
+    }
+  };
+
+  const calculateHoursWorked = (clockIn: string, clockOut: string) => {
+    const start = new Date(clockIn);
+    const end = new Date(clockOut);
+    return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2);
+  };
+
+  const handleRequestDelete = (item: any) => {
+    setItemToDelete(item);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!itemToDelete) return;
+    
+    // First verification - show success message but don't delete yet
+    // toast({
+    //   title: 'First verification complete',
+    //   description: 'Please confirm again to permanently delete',
+    //   variant: 'default'
+    // });
+    
+    // Set a timeout to reset if not confirmed within 10 seconds
+    setTimeout(() => {
+      if (showDeleteConfirm) {
+        setShowDeleteConfirm(false);
+        setItemToDelete(null);
+      }
+    }, 10000);
+  };
+
+  const finalConfirmDelete = () => {
+    if (!itemToDelete) return;
+    
+    // Actual deletion logic here
+    if (activeTab === 'staff') {
+      const updatedStaff = staff.filter(staff => staff.id !== itemToDelete.id);
+      setStaff(updatedStaff);
+      localStorage.setItem('pharmacy_staff', JSON.stringify(updatedStaff));
+    } else {
+      const updatedAttendance = attendanceRecords.filter(record => record.id !== itemToDelete.id);
+      setAttendanceRecords(updatedAttendance);
+      localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedAttendance));
+    }
+    
+    setShowDeleteConfirm(false);
+    setItemToDelete(null);
+    
+    // toast({
+    //   title: 'Successfully deleted',
+    //   description: 'The record has been permanently removed',
+    //   variant: 'default'
+    // });
+  };
+
+  const handleAddLeave = async () => {
+    try {
+      const updatedLeaves = [...leaveRecords];
+      updatedLeaves.push({
+        id: Date.now().toString(),
+        staffId: currentStaff.id,
+        staffName: currentStaff.name,
+        ...leaveData,
+        date: new Date().toISOString().split('T')[0]
+      });
+      
+      setLeaveRecords(updatedLeaves);
+      localStorage.setItem('pharmacy_leaves', JSON.stringify(updatedLeaves));
+      
+      // toast({
+      //   title: isUrdu ? 'چھٹی درج ہو گئی' : 'Leave Added',
+      //   description: isUrdu 
+      //     ? `${currentStaff.name} کی چھٹی کامیابی سے درج ہو گئی` 
+      //     : `Leave recorded for ${currentStaff.name}`,
+      //   variant: 'default'
+      // });
+      
+      setShowLeaveDialog(false);
+      setLeaveData({ days: 0, reason: '', type: '' });
+    } catch (error) {
+      console.error('Failed to add leave:', error);
+      // toast({
+      //   title: isUrdu ? 'خرابی' : 'Error',
+      //   description: isUrdu 
+      //     ? 'چھٹی درج کرنے میں خرابی آئی ہے' 
+      //     : 'Failed to record leave',
+      //   variant: 'destructive'
+      // });
+    }
+  };
+
+  const handleAddDeduction = async () => {
+    try {
+      const updatedDeductions = [...deductionRecords];
+      updatedDeductions.push({
+        id: Date.now().toString(),
+        staffId: currentStaff.id,
+        staffName: currentStaff.name,
+        ...deductionData,
+        date: new Date().toISOString().split('T')[0]
+      });
+      
+      setDeductionRecords(updatedDeductions);
+      localStorage.setItem('pharmacy_deductions', JSON.stringify(updatedDeductions));
+      
+      // toast({
+      //   title: isUrdu ? 'کٹوتی درج ہو گئی' : 'Deduction Added',
+      //   description: isUrdu 
+      //     ? `${currentStaff.name} کی کٹوتی کامیابی سے درج ہو گئی` 
+      //     : `Deduction recorded for ${currentStaff.name}`,
+      //   variant: 'default'
+      // });
+      
+      setShowDeductionDialog(false);
+      setDeductionData({ amount: 0, reason: '' });
+    } catch (error) {
+      console.error('Failed to add deduction:', error);
+      // toast({
+      //   title: isUrdu ? 'خرابی' : 'Error',
+      //   description: isUrdu 
+      //     ? 'کٹوتی درج کرنے میں خرابی آئی ہے' 
+      //     : 'Failed to record deduction',
+      //   variant: 'destructive'
+      // });
+    }
+  };
+
+  const handleAddSalary = async () => {
+    try {
+      const updatedSalaries = [...salaryRecords];
+      updatedSalaries.push({
+        id: Date.now().toString(),
+        staffId: currentStaff.id,
+        staffName: currentStaff.name,
+        ...salaryDataState,
+        date: new Date().toISOString().split('T')[0],
+        status: 'pending'
+      });
+      
+      setSalaryRecords(updatedSalaries);
+      localStorage.setItem('pharmacy_salaries', JSON.stringify(updatedSalaries));
+      
+      // toast({
+      //   title: isUrdu ? 'تنخواہ درج ہو گئی' : 'Salary Added',
+      //   description: isUrdu 
+      //     ? `${currentStaff.name} کی تنخواہ کامیابی سے درج ہو گئی` 
+      //     : `Salary recorded for ${currentStaff.name}`,
+      //   variant: 'default'
+      // });
+      
+      setShowSalaryDialog(false);
+      setSalaryDataState({ amount: 0, bonus: 0, month: '' });
+    } catch (error) {
+      console.error('Failed to add salary:', error);
+      // toast({
+      //   title: isUrdu ? 'خرابی' : 'Error',
+      //   description: isUrdu 
+      //     ? 'تنخواہ درج کرنے میں خرابی آئی ہے' 
+      //     : 'Failed to record salary',
+      //   variant: 'destructive'
+      // });
+    }
+  };
+
+  const handleDeleteConfirmation = (item: any, type: 'staff' | 'attendance' | 'leave' | 'deduction' | 'salary') => {
+    setItemToDelete({ ...item, type });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    try {
+      if (!itemToDelete) return;
+      
+      switch (itemToDelete.type) {
+        case 'staff':
+          const updatedStaff = staff.filter((s: any) => s.id !== itemToDelete.id);
+          setStaff(updatedStaff);
+          localStorage.setItem('pharmacy_staff', JSON.stringify(updatedStaff));
+          break;
+        
+        case 'attendance':
+          const updatedAttendance = attendanceRecords.filter((a: any) => a.id !== itemToDelete.id);
+          setAttendanceRecords(updatedAttendance);
+          localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedAttendance));
+          break;
+          
+        case 'leave':
+          const updatedLeaves = leaveRecords.filter((l: any) => l.id !== itemToDelete.id);
+          setLeaveRecords(updatedLeaves);
+          localStorage.setItem('pharmacy_leaves', JSON.stringify(updatedLeaves));
+          break;
+          
+        case 'deduction':
+          const updatedDeductions = deductionRecords.filter((d: any) => d.id !== itemToDelete.id);
+          setDeductionRecords(updatedDeductions);
+          localStorage.setItem('pharmacy_deductions', JSON.stringify(updatedDeductions));
+          break;
+          
+        case 'salary':
+          const updatedSalaries = salaryRecords.filter((s: any) => s.id !== itemToDelete.id);
+          setSalaryRecords(updatedSalaries);
+          localStorage.setItem('pharmacy_salaries', JSON.stringify(updatedSalaries));
+          break;
+      }
+      
+      // toast({
+      //   title: isUrdu ? 'کامیابی' : 'Success',
+      //   description: isUrdu 
+      //     ? 'ریکارڈ کامیابی سے حذف ہو گیا' 
+      //     : 'Record deleted successfully',
+      //   variant: 'default'
+      // });
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      // toast({
+      //   title: isUrdu ? 'خرابی' : 'Error',
+      //   description: isUrdu 
+      //     ? 'ریکارڈ حذف کرنے میں خرابی آئی ہے' 
+      //     : 'Failed to delete record',
+      //   variant: 'destructive'
+      // });
+    } finally {
+      setShowDeleteConfirm(false);
+      setItemToDelete(null);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -532,8 +853,14 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
                       <Button size="sm" variant="outline" onClick={() => handleEditStaff(staffMember)}>
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDeleteStaff(staffMember.id)}>
+                      <Button size="sm" variant="outline" onClick={() => handleRequestDelete(staffMember)}>
                         <Trash2 className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setSelectedEmployee(staffMember);
+                        setShowProfile(true);
+                      }}>
+                        <Eye className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
@@ -544,7 +871,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
         </TabsContent>
       </Tabs>
 
-{showAttendanceForm && (
+      {showAttendanceForm && (
         <AttendanceForm
           isUrdu={isUrdu}
           staffList={staff}
@@ -575,6 +902,102 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
           attendanceRecords={attendanceRecords}
           onClose={() => setShowStaffReport(false)}
         />
+      )}
+
+      {showDeleteConfirm && (
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+              <DialogDescription>
+                {itemToDelete?.name ? 
+                  `Are you sure you want to delete ${itemToDelete.name}?` :
+                  'Are you sure you want to delete this record?'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-4">
+              <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                <p className="text-sm text-yellow-700">
+                  This action requires double verification. Deleting cannot be undone.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={confirmDelete}
+                >
+                  First Verification
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={finalConfirmDelete}
+                  disabled={!itemToDelete?.verified}
+                >
+                  Final Confirm
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {showProfile && selectedEmployee && (
+        <Dialog open={showProfile} onOpenChange={setShowProfile}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{selectedEmployee.name}'s Profile</DialogTitle>
+            </DialogHeader>
+            
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-medium">Total Leaves</h3>
+                  <p>{selectedEmployee.totalLeaves || 0}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Status</h3>
+                  <Badge variant={selectedEmployee.status === 'Active' ? 'default' : 'destructive'}>
+                    {selectedEmployee.status}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-medium">Base Salary</h3>
+                  <p>{selectedEmployee.baseSalary?.toLocaleString() || 0}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Total Deductions</h3>
+                  <p>{selectedEmployee.totalDeductions?.toLocaleString() || 0}</p>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-medium">Net Salary</h3>
+                <p>{(selectedEmployee.baseSalary - selectedEmployee.totalDeductions)?.toLocaleString() || 0}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-medium">Clock In/Out History</h3>
+                <div className="space-y-2 mt-2">
+                  {selectedEmployee.clockHistory?.map((entry: any) => (
+                    <div key={entry.date} className="flex justify-between">
+                      <span>{new Date(entry.date).toLocaleDateString()}</span>
+                      <span>{entry.type}: {entry.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import { Plus, User, Truck, X, Download, RefreshCw, ScanLine, Barcode } from 'lu
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getInventory, saveInventory, updateItemStock, InventoryItem } from '@/utils/inventoryService';
+import { getInventory, saveInventory, updateItemStock } from '@/utils/inventoryService';
 import { saveSaleToRecent } from '@/utils/salesService';
 // Define SaleItem interface locally since it's not found in @/types/sale
 interface SaleItem {
@@ -125,11 +125,14 @@ const ReturnsPage: FC<ReturnsPageProps> = ({ isUrdu }) => {
           if (inventoryItemIndex >= 0) {
             // Update existing inventory item
             const existingItem = updatedInventory[inventoryItemIndex];
-            updatedInventory[inventoryItemIndex] = {
-              ...existingItem,
-              stock: (existingItem.stock || 0) + returnedItem.quantity
-            };
-            inventoryUpdated = true;
+            const stock = parseInt(existingItem.stock.toString(), 10);
+            if (stock > 0) {
+              updatedInventory[inventoryItemIndex] = {
+                ...existingItem,
+                stock: (stock + returnedItem.quantity)
+              };
+              inventoryUpdated = true;
+            }
           } else {
             // Add new inventory item
             updatedInventory.push({
@@ -146,7 +149,7 @@ const ReturnsPage: FC<ReturnsPageProps> = ({ isUrdu }) => {
               purchasePrice: 0,
               expiryDate: '',
               manufacturingDate: ''
-            } as InventoryItem);
+            });
             inventoryUpdated = true;
           }
         } catch (error) {
@@ -164,6 +167,58 @@ const ReturnsPage: FC<ReturnsPageProps> = ({ isUrdu }) => {
       return false;
     } catch (error) {
       console.error('Error updating inventory with return:', error);
+      return false;
+    }
+  };
+
+  // Add this function to handle inventory updates
+  const updateInventoryOnReturn = async (medicines: MedicineEntry[], returnType: 'customer' | 'supplier') => {
+    try {
+      const inventory = await getInventory();
+      
+      medicines.forEach(returnItem => {
+        const inventoryItem = inventory.find(item => item.id === returnItem.id);
+        
+        if (inventoryItem) {
+          // For customer returns, increase stock (product coming back to pharmacy)
+          // For supplier returns, decrease stock (product going back to supplier)
+          const stockChange = returnType === 'customer' 
+            ? returnItem.quantity 
+            : -returnItem.quantity;
+          
+          inventoryItem.stock += stockChange;
+          
+          // Update batch information if provided
+          if (returnItem.batchNo) {
+            inventoryItem.batchNumber = returnItem.batchNo;
+          }
+          
+          if (returnItem.expiryDate) {
+            inventoryItem.expiryDate = returnItem.expiryDate;
+          }
+        }
+      });
+      
+      await saveInventory(inventory);
+      
+      toast({
+        title: isUrdu ? 'انوینٹری اپ ڈیٹ ہو گئی' : 'Inventory Updated',
+        description: isUrdu 
+          ? 'ریٹرن کے بعد انوینٹری کامیابی سے اپ ڈیٹ ہو گئی' 
+          : 'Inventory has been successfully updated after return',
+        variant: 'default'
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to update inventory:', error);
+      toast({
+        title: isUrdu ? 'انوینٹری اپ ڈیٹ میں ناکامی' : 'Inventory Update Failed',
+        description: isUrdu 
+          ? 'ریٹرن پر انوینٹری اپ ڈیٹ کرنے میں خرابی آئی ہے' 
+          : 'Failed to update inventory on return',
+        variant: 'destructive'
+      });
       return false;
     }
   };
@@ -266,7 +321,7 @@ const ReturnsPage: FC<ReturnsPageProps> = ({ isUrdu }) => {
   }, []);
 
   // Handle form submission
-  const handleSubmit = (type: 'customer' | 'supplier', medicine: { name: string; quantity: number; price: number }) => {
+  const handleSubmit = async (type: 'customer' | 'supplier', medicine: { name: string; quantity: number; price: number }) => {
     if (!medicine.name.trim() || !medicine.quantity || !medicine.price) {
       toast({
         title: isUrdu ? 'خالی فیلڈز' : 'Missing Fields',
@@ -297,7 +352,7 @@ const ReturnsPage: FC<ReturnsPageProps> = ({ isUrdu }) => {
 
       // For customer returns, update inventory and POS
       if (type === 'customer') {
-        const success = updateInventoryWithReturn([medicineEntry]);
+        const success = await updateInventoryOnReturn([medicineEntry], type);
         if (!success) {
           throw new Error('Failed to update inventory');
         }

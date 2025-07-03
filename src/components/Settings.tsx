@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface SettingsProps {
   isUrdu: boolean;
@@ -80,7 +80,21 @@ const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
       save: 'Save Settings',
       english: 'English',
       urdu: 'اردو',
-      saved: 'Settings saved successfully!'
+      saved: 'Settings saved successfully!',
+      deleteAllData: 'Delete All Data',
+      dangerZone: 'Danger Zone',
+      irreversibleActions: 'These actions are irreversible. Proceed with caution.',
+      deleteAllDataConfirmation: 'This will permanently delete ALL pharmacy data including medicines, staff, sales, and settings.',
+      typeToDelete: 'To confirm, type:',
+      cancel: 'Cancel',
+      nextVerification: 'Next Verification',
+      permanentlyDeleteAllData: 'Permanently Delete All Data',
+      verificationFailed: 'Verification Failed',
+      pleaseType: 'Please type',
+      exactlyToProceed: 'exactly to proceed',
+      finalConfirmation: 'Please type the final confirmation phrase exactly to delete all data',
+      allDataDeleted: 'All Data Deleted',
+      dataPermanentlyErased: 'All pharmacy data has been permanently erased',
     },
     ur: {
       title: 'سیٹنگز',
@@ -103,11 +117,76 @@ const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
       save: 'سیٹنگز محفوظ کریں',
       english: 'English',
       urdu: 'اردو',
-      saved: 'سیٹنگز کامیابی سے محفوظ ہوئیں!'
+      saved: 'سیٹنگز کامیابی سے محفوظ ہوئیں!',
+      deleteAllData: 'تمام ڈیٹا حذف کریں',
+      dangerZone: 'خطرے کی زون',
+      irreversibleActions: 'یہ کارروائیاں غیر قابل واپسی ہیں۔ احتیاط سے آگے بڑھیں۔',
+      deleteAllDataConfirmation: 'یہ تمام فارمیسی ڈیٹا کو مستقل طور پر حذف کر دے گا بشمول ادویات، عملہ، فروخت، اور سیٹنگز۔',
+      typeToDelete: 'توثیق کے لیے، ٹائپ کریں:',
+      cancel: 'منسوخ کریں',
+      nextVerification: 'اگلی توثیق',
+      permanentlyDeleteAllData: 'تمام ڈیٹا کو مستقل طور پر حذف کریں',
+      verificationFailed: 'توثیق ناکام ہو گئی',
+      pleaseType: 'براہ کرم ٹائپ کریں',
+      exactlyToProceed: 'آگے بڑھنے کے لیے بالکل',
+      finalConfirmation: 'براہ کرم تمام ڈیٹا کو حذف کرنے کے لیے حتمی توثیقی جملہ بالکل ٹائپ کریں',
+      allDataDeleted: 'تمام ڈیٹا حذف ہو گیا',
+      dataPermanentlyErased: 'تمام فارمیسی ڈیٹا کو مستقل طور پر حذف کر دیا گیا ہے',
     }
   };
 
   const t = isUrdu ? text.ur : text.en;
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [verificationStep, setVerificationStep] = useState(1);
+  const [confirmText, setConfirmText] = useState('');
+  
+  const verificationPhrases = [
+    'DELETE ALL DATA',
+    'CONFIRM DELETION',
+    'PERMANENTLY ERASE'
+  ];
+
+  const handleDeleteAllData = () => {
+    if (confirmText === verificationPhrases[verificationStep - 1]) {
+      if (verificationStep < 3) {
+        setVerificationStep(verificationStep + 1);
+        setConfirmText('');
+      } else {
+        // Final confirmation - delete all data
+        if (confirmText === verificationPhrases[2]) {
+          // Preserve protected medicines
+          const protectedMeds = localStorage.getItem('protectedMedicines');
+          
+          // Clear all localStorage data
+          localStorage.clear();
+          
+          // Restore protected medicines
+          if (protectedMeds) {
+            localStorage.setItem('protectedMedicines', protectedMeds);
+          }
+          
+          // Show success message
+          toast({
+            title: t.allDataDeleted,
+            description: t.dataPermanentlyErased + ' (protected medicines preserved)',
+            variant: 'default'
+          });
+          
+          // Reset and close dialog
+          setVerificationStep(1);
+          setConfirmText('');
+          setShowDeleteDialog(false);
+        }
+      }
+    } else {
+      toast({
+        title: t.verificationFailed,
+        description: t.pleaseType + ' "' + verificationPhrases[verificationStep - 1] + '" ' + t.exactlyToProceed,
+        variant: 'destructive'
+      });
+    }
+  };
 
   const handleSave = () => {
     try {
@@ -325,6 +404,61 @@ const Settings: React.FC<SettingsProps> = ({ isUrdu, setIsUrdu }) => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="border rounded-lg p-4">
+        <h2 className="text-lg font-semibold mb-2">{t.dangerZone}</h2>
+        <p className="text-sm text-muted-foreground mb-4">{t.irreversibleActions}</p>
+        
+        <Button 
+          variant="destructive"
+          onClick={() => setShowDeleteDialog(true)}
+        >
+          {t.deleteAllData}
+        </Button>
+      </div>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete All Data - Step {verificationStep}/3</DialogTitle>
+            <DialogDescription className="text-destructive">
+              {t.deleteAllDataConfirmation}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm">
+              {t.typeToDelete} <span className="font-bold">"{verificationPhrases[verificationStep - 1]}"</span>
+            </p>
+            
+            <Input 
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={`Type "${verificationPhrases[verificationStep - 1]}"`}
+            />
+            
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setVerificationStep(1);
+                  setConfirmText('');
+                }}
+              >
+                {t.cancel}
+              </Button>
+              
+              <Button 
+                variant="destructive"
+                onClick={handleDeleteAllData}
+              >
+                {verificationStep < 3 ? t.nextVerification : t.permanentlyDeleteAllData}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex justify-end">
         <Button onClick={handleSave} className="px-8">
