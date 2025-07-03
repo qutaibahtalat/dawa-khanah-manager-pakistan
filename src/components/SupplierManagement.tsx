@@ -28,7 +28,6 @@ interface SupplierManagementProps {
 
 const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
   const { logAction } = useAuditLog();
-  
   // --- New state for adding supplies ---
   const [newSupply, setNewSupply] = useState<{ name: string; cost: number; quantity: number }>({
     name: '',
@@ -42,7 +41,6 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
     amount: 0,
     invoice: '',
   });
-
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);

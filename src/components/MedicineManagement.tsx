@@ -97,9 +97,23 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
     }));
   };
 
-  const handleDeleteMedicine = (id: string) => {
-    deleteMedicine(id);
-    refreshMedicines();
+  const handleDeleteMedicine = (id: number) => {
+    if (window.confirm(isUrdu ? 'کیا آپ واقعی یہ دوا حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this medicine?')) {
+      const medicineToDelete = medicines.find(m => m.id === id);
+      const updatedMedicines = medicines.filter(medicine => medicine.id !== id);
+      setMedicines(updatedMedicines);
+      
+      logAction('DELETE_MEDICINE', 
+        isUrdu ? `دوا حذف کی گئی: ${medicineToDelete?.name}` : `Deleted medicine: ${medicineToDelete?.name}`,
+        'medicine',
+        id.toString()
+      );
+      
+      toast({
+        title: isUrdu ? 'کامیابی' : 'Success',
+        description: isUrdu ? 'دوا کامیابی سے حذف ہو گئی' : 'Medicine deleted successfully',
+      });
+    }
   };
 
   const confirmDeleteMedicine = () => {
