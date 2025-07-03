@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +41,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
       address: 'House 123, Block A, Gulshan-e-Iqbal, Karachi',
       cnic: '42101-1234567-1',
       notes: 'Regular customer, prefers generic medicines',
+      mrNumber: 'MR-001',
       createdAt: '2023-01-15',
       totalPurchases: 25,
       loyaltyPoints: 1250
@@ -49,14 +49,15 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
     {
       id: 2,
       name: 'Fatima Khan',
-      phone: '+92-321-9876543',
-      email: 'fatima.khan@yahoo.com',
-      address: 'Flat 45, North Nazimabad, Karachi',
-      cnic: '42101-9876543-2',
-      notes: 'Diabetic patient, regular insulin purchases',
+      phone: '+92-333-9876543',
+      email: 'fatima.khan@hotmail.com',
+      address: 'Flat 42, Block C, DHA Phase 5, Lahore',
+      cnic: '35202-7654321-9',
+      notes: 'Allergic to penicillin',
+      mrNumber: 'MR-002',
       createdAt: '2023-02-20',
       totalPurchases: 18,
-      loyaltyPoints: 890
+      loyaltyPoints: 900
     }
   ]);
 
@@ -78,7 +79,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
       customerSince: 'Customer Since',
       loyaltyPoints: 'Loyalty Points',
       totalPurchases: 'Total Purchases',
-      viewLoyalty: 'View Loyalty'
+      viewLoyalty: 'View Loyalty',
+      mrNumber: 'MR Number'
     },
     ur: {
       title: 'کسٹمر منیجمنٹ',
@@ -97,7 +99,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
       customerSince: 'کسٹمر بننے کی تاریخ',
       loyaltyPoints: 'لائلٹی پوائنٹس',
       totalPurchases: 'کل خریداریاں',
-      viewLoyalty: 'لائلٹی دیکھیں'
+      viewLoyalty: 'لائلٹی دیکھیں',
+      mrNumber: 'ایم آر نمبر'
     }
   };
 
@@ -231,6 +234,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="font-poppins">{t.customerSince}: {customer.createdAt}</span>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-600 font-poppins">{t.mrNumber}:</span>
+                    <span className="font-poppins">{customer.mrNumber}</span>
+                  </div>
                 </div>
 
                 {/* Loyalty and Purchase Stats */}
@@ -276,6 +283,23 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ isUrdu }) => {
           );
         })}
       </div>
+
+      {selectedCustomer && (
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <User className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">{selectedCustomer.name}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">{t.mrNumber}:</span>
+            <span>{selectedCustomer.mrNumber}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Phone className="h-4 w-4 text-gray-500" />
+            <span>{selectedCustomer.phone}</span>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <CustomerForm

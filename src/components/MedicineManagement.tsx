@@ -28,6 +28,7 @@ import {
 import { offlineManager } from '../utils/offlineManager';
 import { reportExporter } from '../utils/reportExporter';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DoubleConfirmDialog } from './ui/DoubleConfirmDialog';
 import { Medicine } from '@/types/medicine';
 
@@ -658,6 +659,67 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
     // Add implementation
   };
 
+  const [showDeleteOrderDialog, setShowDeleteOrderDialog] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
+
+  const handleDeleteOrder = (orderId: number) => {
+    setOrderToDelete(orderId);
+    setShowDeleteOrderDialog(true);
+  };
+
+  const confirmDeleteOrder = () => {
+    if (orderToDelete) {
+      const updatedMedicines = medicines.map(medicine => ({
+        ...medicine,
+        supplierOrders: medicine.supplierOrders?.filter(order => order.id !== orderToDelete)
+      }));
+      setMedicines(updatedMedicines);
+      saveMedicinesToLocal(updatedMedicines);
+      setShowDeleteOrderDialog(false);
+      setOrderToDelete(null);
+      toast({
+        title: isUrdu ? 'آرڈر حذف ہو گیا' : 'Order Deleted',
+        description: isUrdu ? 'سپلائر کا آرڈر کامیابی سے حذف ہو گیا' : 'Supplier order deleted successfully',
+        variant: 'default'
+      });
+    }
+  };
+
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+
+  const viewOrderDetails = (order: any) => {
+    setSelectedOrder(order);
+    setShowOrderDetails(true);
+  };
+
+  const handleAddSupplierOrder = (medicineId: number, orderData: any) => {
+    const updatedMedicines = medicines.map(medicine => {
+      if (medicine.id === medicineId) {
+        // Update inventory quantity
+        const newQuantity = medicine.stock + orderData.quantity;
+        
+        return {
+          ...medicine,
+          stock: newQuantity,
+          supplierOrders: [...(medicine.supplierOrders || []), orderData]
+        };
+      }
+      return medicine;
+    });
+    
+    setMedicines(updatedMedicines);
+    saveMedicinesToLocal(updatedMedicines);
+    
+    toast({
+      title: isUrdu ? 'آرڈر شامل کیا گیا' : 'Order Added',
+      description: isUrdu 
+        ? 'سپلائر کا آرڈر کامیابی سے شامل کر دیا گیا اور انوینٹری اپ ڈیٹ ہو گئی' 
+        : 'Supplier order added successfully and inventory updated',
+      variant: 'default'
+    });
+  };
+
   return (
     <>
       <div className="p-6 space-y-6">
@@ -1071,6 +1133,16 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
+              {medicine.supplierOrders && (
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  title="View Order Details"
+                  onClick={() => viewOrderDetails(medicine.supplierOrders[0])}
+                >
+                  <Package className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1079,22 +1151,88 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
   </div>
 )}
       </div>
-      <DoubleConfirmDialog 
-        title="Delete Medicine"
-        description="Are you sure you want to delete this medicine?"
-        onConfirm={() => deleteMedicine(selectedMedicineId)}
-      />
+      <Dialog open={showDeleteDialog} onOpenChange={() => setShowDeleteDialog(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Medicine</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p>Are you sure you want to delete this medicine?</p>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+              <Button onClick={confirmDeleteMedicine}>Delete</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {showDeleteOrderDialog && (
+        <Dialog open={showDeleteOrderDialog} onOpenChange={() => setShowDeleteOrderDialog(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Order</DialogTitle>
+            </DialogHeader>
+            <div className="p-4">
+              <p>Are you sure you want to delete this order?</p>
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button variant="outline" onClick={() => setShowDeleteOrderDialog(false)}>Cancel</Button>
+                <Button onClick={confirmDeleteOrder}>Delete</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+      {showOrderDetails && selectedOrder && (
+        <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Order Details</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Order ID
+                </Label>
+                <div className="col-span-3">{selectedOrder.id}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Supplier
+                </Label>
+                <div className="col-span-3">{selectedOrder.supplier}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Date
+                </Label>
+                <div className="col-span-3">{selectedOrder.date}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Quantity
+                </Label>
+                <div className="col-span-3">{selectedOrder.quantity}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Price
+                </Label>
+                <div className="col-span-3">{selectedOrder.price}</div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {/* Bulk Import Modal */}
       {showBulkImport && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle>{isUrdu ? 'بلک درآمد' : 'Bulk Import'}</CardTitle>
+              <CardTitle>Bulk Import</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <Label>{isUrdu ? 'JSON فائل منتخب کریں' : 'Select JSON file'}</Label>
+                  <Label>Select JSON file</Label>
                   <Input 
                     type="file" 
                     accept=".json" 
@@ -1103,10 +1241,10 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowBulkImport(false)}>
-                    {isUrdu ? 'منسوخ کریں' : 'Cancel'}
+                    Cancel
                   </Button>
                   <Button onClick={handleBulkImportFile} disabled={!bulkImportFile}>
-                    {isUrdu ? 'درآمد کریں' : 'Import'}
+                    Import
                   </Button>
                 </div>
               </div>

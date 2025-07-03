@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateMedicineDatabase, searchMedicines, getLowStockMedicines, getExpiringMedicines, Medicine } from '../utils/medicineDatabase';
 import { reportExporter } from '../utils/reportExporter';
+import commonPakistaniMedicines from '@/data/commonPakistaniMedicines';
 
 interface MedicineDatabaseProps {
   isUrdu: boolean;
@@ -45,29 +46,8 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
   };
 
   useEffect(() => {
-    const loadMedicineDatabase = async () => {
-      try {
-        setLoading(true);
-        // Check if medicines exist in localStorage
-        const savedMedicines = localStorage.getItem('medicines');
-        
-        if (savedMedicines) {
-          setMedicines(JSON.parse(savedMedicines));
-        } else {
-          // Generate initial database if none exists
-          const generatedMedicines = await generateMedicineDatabase();
-          setMedicines(generatedMedicines);
-          localStorage.setItem('medicines', JSON.stringify(generatedMedicines));
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Failed to load medicine database:', error);
-        setLoading(false);
-      }
-    };
-    
-    loadMedicineDatabase();
+    setMedicines(commonPakistaniMedicines);
+    setFilteredMedicines(commonPakistaniMedicines);
   }, []);
 
   useEffect(() => {

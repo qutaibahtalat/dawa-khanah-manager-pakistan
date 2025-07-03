@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,13 +14,20 @@ interface CustomerFormProps {
 }
 
 const CustomerForm: React.FC<CustomerFormProps> = ({ isUrdu, onClose, onSave, customer }) => {
+  const generateMRNumber = () => {
+    const prefix = 'MR-';
+    const randomNum = Math.floor(1000 + Math.random() * 9000); // Generates 4-digit number
+    return `${prefix}${randomNum}`;
+  };
+
   const [formData, setFormData] = useState({
     name: customer?.name || '',
     phone: customer?.phone || '',
     email: customer?.email || '',
     address: customer?.address || '',
     cnic: customer?.cnic || '',
-    notes: customer?.notes || ''
+    notes: customer?.notes || '',
+    mrNumber: customer?.mrNumber || generateMRNumber()
   });
 
   const text = {
@@ -33,6 +39,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isUrdu, onClose, onSave, cu
       address: 'Address',
       cnic: 'CNIC',
       notes: 'Notes',
+      mrNumber: 'MR Number',
       save: 'Save',
       cancel: 'Cancel'
     },
@@ -44,6 +51,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isUrdu, onClose, onSave, cu
       address: 'پتہ',
       cnic: 'شناختی کارڈ',
       notes: 'نوٹس',
+      mrNumber: 'ایم آر نمبر',
       save: 'محفوظ کریں',
       cancel: 'منسوخ'
     }
@@ -114,6 +122,16 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isUrdu, onClose, onSave, cu
               <Input
                 value={formData.cnic}
                 onChange={(e) => setFormData({...formData, cnic: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mrNumber" className="text-sm font-medium">{t.mrNumber}</Label>
+              <Input
+                id="mrNumber"
+                value={formData.mrNumber}
+                onChange={(e) => setFormData({...formData, mrNumber: e.target.value})}
+                className="w-full"
               />
             </div>
 

@@ -43,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     en: {
       dashboard: 'Dashboard',
       medicines: 'Medicines',
-      medicineDatabase: '20K Database',
+      medicineDatabase: '50K Database',
       pos: 'Point of Sale',
       inventory: 'Inventory',
       customers: 'Customers',
@@ -64,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     ur: {
       dashboard: 'ڈیش بورڈ',
       medicines: 'ادویات',
-      medicineDatabase: '20 ہزار ڈیٹابیس',
+      medicineDatabase: '50 ہزار ڈیٹابیس',
       pos: 'پوائنٹ آف سیل',
       inventory: 'انوینٹری',
       customers: 'کسٹمرز',
@@ -102,6 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'returns', label: t.returns, icon: ArrowLeftRight },
     { id: 'audit-logs', label: t.auditLogs, icon: Clock },
     { id: 'expenses', label: t.expenses, icon: Calculator },
+    { id: 'medicineDatabase', label: t.medicineDatabase, icon: Database },
     { id: 'settings', label: t.settings, icon: Settings }
   ];
 

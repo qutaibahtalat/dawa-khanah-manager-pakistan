@@ -42,7 +42,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [cartItems, setCartItems] = useState<any[]>([]);
-  const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', id: '' });
+  const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', id: '', mrNumber: '' });
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [amountReceived, setAmountReceived] = useState('');
@@ -51,6 +51,10 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [discount, setDiscount] = useState<number | string>('');
+  const [customerHistory, setCustomerHistory] = useState<{
+    purchases: Array<{medicine: string, date: string, quantity: number, price: number}>,
+    credit: {total: number, used: number, remaining: number}
+  } | null>(null);
   
   // Handle search input change
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,6 +231,69 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       setCustomerLoyalty(null);
     }
   }, [customerInfo.phone]);
+
+  const getCustomerByMRNumber = (mrNumber: string) => {
+    try {
+      const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+      const customer = customers.find((c: any) => c.mrNumber === mrNumber);
+      
+      if (!customer) return null;
+      
+      // Get customer purchase history
+      const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+      const customerSales = sales.filter((s: any) => s.customerId === customer.id);
+      
+      // Get customer credit info
+      const creditInfo = {
+        total: customer.creditLimit || 0,
+        used: customer.creditUsed || 0,
+        remaining: (customer.creditLimit || 0) - (customer.creditUsed || 0)
+      };
+      
+      return {
+        customer,
+        history: {
+          purchases: customerSales.map((s: any) => ({
+            medicine: s.items.map((i: any) => i.name).join(', '),
+            date: s.date,
+            quantity: s.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
+            price: s.total
+          })),
+          credit: creditInfo
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching customer data:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (customerInfo.mrNumber && customerInfo.mrNumber.length >= 3) {
+      const customerData = getCustomerByMRNumber(customerInfo.mrNumber);
+      
+      if (customerData) {
+        setCustomerInfo({
+          name: customerData.customer.name,
+          phone: customerData.customer.phone,
+          id: customerData.customer.id,
+          mrNumber: customerData.customer.mrNumber
+        });
+        setCustomerHistory(customerData.history);
+      } else {
+        toast({
+          title: isUrdu ? 'گاہک نہیں ملا' : 'Customer Not Found',
+          description: isUrdu 
+            ? 'براہ کرم ایم آر نمبر کی تصدیق کریں' 
+            : 'Please verify the MR number',
+          variant: 'destructive'
+        });
+        setCustomerHistory(null);
+      }
+    } else {
+      setCustomerHistory(null);
+    }
+  }, [customerInfo.mrNumber]);
 
   const addToCart = (medicine: InventoryItem) => {
     if (medicine.stock <= 0) {
@@ -431,7 +498,7 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       
       setShowPaymentDialog(false);
       setCartItems([]);
-      setCustomerInfo({ name: '', phone: '', id: '' });
+      setCustomerInfo({ name: '', phone: '', id: '', mrNumber: '' });
       setAmountReceived('');
       setLoyaltyDiscount(0);
       setCustomerLoyalty(null);
@@ -659,6 +726,12 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
             </CardHeader>
             <CardContent className="space-y-3">
               <Input
+                placeholder={isUrdu ? 'ایم آر نمبر' : 'MR Number'}
+                value={customerInfo.mrNumber}
+                onChange={(e) => setCustomerInfo({...customerInfo, mrNumber: e.target.value })}
+                className="font-poppins mb-2"
+              />
+              <Input
                 placeholder={t.customerName}
                 value={customerInfo.name}
                 onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
@@ -710,6 +783,34 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
               )}
             </CardContent>
           </Card>
+
+          {customerHistory && (
+            <div className="mt-4 space-y-2">
+              <h3 className="font-medium">{isUrdu ? 'گزشتہ خریداریاں' : 'Purchase History'}</h3>
+              <div className="space-y-1">
+                {customerHistory.purchases.map((purchase, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span>{purchase.medicine}</span>
+                    <span>{purchase.quantity} x {purchase.price} = {purchase.quantity * purchase.price}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <h3 className="font-medium mt-2">{isUrdu ? 'کریڈٹ معلومات' : 'Credit Info'}</h3>
+              <div className="flex justify-between text-sm">
+                <span>{isUrdu ? 'کل کریڈٹ' : 'Total Credit'}:</span>
+                <span>{customerHistory.credit.total}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>{isUrdu ? 'استعمال شدہ' : 'Used'}:</span>
+                <span>{customerHistory.credit.used}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span>{isUrdu ? 'باقی' : 'Remaining'}:</span>
+                <span>{customerHistory.credit.remaining}</span>
+              </div>
+            </div>
+          )}
 
           {/* Shopping Cart */}
           <Card>
@@ -822,28 +923,19 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
               <CardTitle className="font-poppins">{t.processPayment}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 font-poppins">{t.paymentMethod}</label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem key="cash-payment" value="cash">
-                      <div className="flex items-center space-x-2">
-                        <Banknote className="h-4 w-4" />
-                        <span className="font-poppins">{t.cash}</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem key="card-payment" value="card">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="h-4 w-4" />
-                        <span className="font-poppins">{t.card}</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select 
+                value={paymentMethod} 
+                onValueChange={(value) => setPaymentMethod(value)}
+                className="mb-4"
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isUrdu ? 'ادائیگی کی قسم' : 'Payment Type'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">{isUrdu ? 'نقد' : 'Cash'}</SelectItem>
+                  <SelectItem value="credit">{isUrdu ? 'کریڈٹ' : 'Credit'}</SelectItem>
+                </SelectContent>
+              </Select>
 
               <div>
                 <label className="block text-sm font-medium mb-2 font-poppins">{t.amountReceived}</label>
@@ -910,6 +1002,16 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                   )}
                 </div>
               )}
+              {paymentMethod === 'credit' && customerHistory?.credit.remaining < total && (
+                <div className="bg-red-50 p-4 rounded mt-2">
+                  <div className="flex justify-between">
+                    <span className="font-poppins">{isUrdu ? 'کریڈٹ ناکافی' : 'Insufficient Credit'}:</span>
+                    <span className="font-bold text-red-600 font-poppins">
+                      PKR {customerHistory.credit.remaining.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
               {paymentMethod !== 'cash' && (
                 <div className="h-[120px]"></div>
               )}
@@ -920,7 +1022,8 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
                   className="flex-1 touch-target font-poppins"
                   disabled={
                     isProcessing || 
-                    (paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < total))
+                    (paymentMethod === 'cash' && (!amountReceived || parseFloat(amountReceived) < total)) ||
+                    (paymentMethod === 'credit' && customerHistory?.credit.remaining < total)
                   }
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />

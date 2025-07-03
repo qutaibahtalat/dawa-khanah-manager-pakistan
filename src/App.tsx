@@ -10,6 +10,7 @@ import { DataProvider } from "./contexts/DataContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import EnhancedReports from "./components/EnhancedReports";
+import MedicineDatabase from './components/MedicineDatabase';
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/analytics" element={<EnhancedReports isUrdu={false} />} />
+                  <Route path="/medicine-database" element={<MedicineDatabase />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
