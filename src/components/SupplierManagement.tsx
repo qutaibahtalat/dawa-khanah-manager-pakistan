@@ -186,9 +186,9 @@ const SupplierManagement: React.FC<SupplierManagementProps> = ({ isUrdu }) => {
   const t = isUrdu ? text.ur : text.en;
 
   const filteredSuppliers = suppliers.filter(supplier =>
-    supplier.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.phone.includes(searchTerm)
+    (supplier.companyName && supplier.companyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (supplier.phone && supplier.phone.includes(searchTerm))
   );
 
   const handleSaveSupplier = (supplierData: any) => {

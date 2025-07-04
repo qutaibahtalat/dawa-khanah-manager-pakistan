@@ -27,10 +27,53 @@ import StaffForm from './StaffForm';
 import StaffReport from './StaffReport';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { Label } from '@/components/ui/label';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 interface StaffAttendanceProps {
   isUrdu: boolean;
 }
+
+type TranslationKeys = {
+  title: string;
+  attendance: string;
+  staffManagement: string;
+  searchPlaceholder: string;
+  addAttendance: string;
+  addStaff: string;
+  exportReport: string;
+  dailyView: string;
+  monthlyView: string;
+  filterMonth: string;
+  staffName: string;
+  position: string;
+  date: string;
+  checkIn: string;
+  checkOut: string;
+  status: string;
+  notes: string;
+  present: string;
+  absent: string;
+  late: string;
+  halfDay: string;
+  phone: string;
+  email: string;
+  salary: string;
+  joinDate: string;
+  edit: string;
+  delete: string;
+  view: string;
+  pharmacist: string;
+  assistant: string;
+  cashier: string;
+  manager: string;
+  active: string;
+  inactive: string;
+  noRecords: string;
+  noRecordsDesc: string;
+  employee: string;
+  time: string;
+};
 
 const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,7 +82,7 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [showStaffReport, setShowStaffReport] = useState(false);
   const [editingStaff, setEditingStaff] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('attendance');
+  const [activeTab, setActiveTab] = useState('daily');
   const [loadingButton, setLoadingButton] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
@@ -57,6 +100,25 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [showProfile, setShowProfile] = useState(false);
+
+  // Attendance Settings state
+  const [attendanceSettings, setAttendanceSettings] = useState(() => {
+    const saved = localStorage.getItem('pharmacy_attendance_settings');
+    return saved
+      ? JSON.parse(saved)
+      : {
+          leaveDeduction: 0,
+          lateDeduction: 0,
+          earlyOutDeduction: 0,
+          clockInTime: '09:00',
+          clockOutTime: '18:00',
+        };
+  });
+
+  // Save attendance settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('pharmacy_attendance_settings', JSON.stringify(attendanceSettings));
+  }, [attendanceSettings]);
 
   // Load initial data from localStorage or use default data
   const loadInitialData = () => {
@@ -149,9 +211,10 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
       attendance: 'Attendance',
       staffManagement: 'Staff Management',
       searchPlaceholder: 'Search staff...',
-      addAttendance: 'Mark Attendance',
+      addAttendance: 'Add Attendance',
       addStaff: 'Add Staff',
       exportReport: 'Export Report',
+      dailyView: 'Daily View',
       monthlyView: 'Monthly View',
       filterMonth: 'Filter by Month',
       staffName: 'Staff Name',
@@ -179,17 +242,20 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
       active: 'Active',
       inactive: 'Inactive',
       noRecords: 'No attendance records',
-      noRecordsDesc: 'No attendance records found for the selected period'
+      noRecordsDesc: 'No attendance records found for the selected period',
+      employee: 'Employee',
+      time: 'Time',
     },
     ur: {
       title: 'عملہ اور حاضری',
       attendance: 'حاضری',
       staffManagement: 'عملے کا انتظام',
       searchPlaceholder: 'عملہ تلاش کریں...',
-      addAttendance: 'حاضری درج کریں',
+      addAttendance: 'حاضری شامل کریں',
       addStaff: 'عملہ شامل کریں',
-      exportReport: 'رپورٹ ایکسپورٹ کریں',
-      monthlyView: 'ماہانہ منظر',
+      exportReport: 'رپورٹ برآمد کریں',
+      dailyView: 'روزانہ نظارہ',
+      monthlyView: 'ماہانہ نظارہ',
       filterMonth: 'مہینے کے ذریعے فلٹر',
       staffName: 'عملے کا نام',
       position: 'عہدہ',
@@ -216,7 +282,9 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
       active: 'فعال',
       inactive: 'غیر فعال',
       noRecords: 'کوئی حاضری ریکارڈ نہیں ملا',
-      noRecordsDesc: 'منتخب مدت کے لیے کوئی حاضری کا ریکارڈ دستیاب نہیں ہے'
+      noRecordsDesc: 'منتخب مدت کے لیے کوئی حاضری کا ریکارڈ دستیاب نہیں ہے',
+      employee: 'ملازم',
+      time: 'وقت',
     }
   };
 
@@ -227,42 +295,55 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
     member.position.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredAttendance = attendanceRecords.filter(record =>
-    record.date.startsWith(selectedMonth) &&
-    (searchTerm === '' || record.staffName.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredAttendance = attendanceRecords.filter(record => {
+    const matchesSearch = searchTerm === '' || 
+      record.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.notes.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDate = record.date.startsWith(selectedMonth);
+    return matchesSearch && matchesDate;
+  });
+
+  const todaysAttendance = attendanceRecords.filter(
+    record => record.date === new Date().toISOString().split('T')[0]
   );
 
   const handleAddAttendance = (attendanceData: any) => {
-    // Generate a new ID for the attendance record
-    const newId = attendanceRecords.length > 0 ? Math.max(...attendanceRecords.map(a => a.id)) + 1 : 1;
-    
-    // Create a new attendance record with the manual staff name
-    const newAttendance = {
-      ...attendanceData,
-      id: newId,
-      staffId: newId * -1, // Negative ID to indicate manual entry (not in staff list)
-      staffName: attendanceData.staffName.trim()
-    };
-    
-    // Update attendance records in state
-    setAttendanceRecords(prev => {
-      // Remove any existing attendance for this staff on this date
-      const filtered = prev.filter(a => 
-        !(a.staffName.toLowerCase() === newAttendance.staffName.toLowerCase() && 
-          a.date === newAttendance.date)
-      );
+    try {
+      const newId = attendanceRecords.length > 0 ? Math.max(...attendanceRecords.map(a => a.id)) + 1 : 1;
       
-      // Add the new attendance record
-      const updatedRecords = [...filtered, newAttendance];
-      
-      // Save to localStorage
-      localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedRecords));
-      
-      return updatedRecords;
-    });
-    
-    // Close the form
-    setShowAttendanceForm(false);
+      const newAttendance = {
+        ...attendanceData,
+        id: newId,
+        staffId: attendanceData.staffId || newId * -1,
+        staffName: attendanceData.staffName.trim(),
+        date: attendanceData.date,
+        status: attendanceData.status,
+        notes: attendanceData.notes || ''
+      };
+
+      setAttendanceRecords(prev => {
+        const updatedRecords = [...prev.filter(a => 
+          !(a.date === newAttendance.date && 
+            (a.staffId === newAttendance.staffId || 
+             a.staffName.toLowerCase() === newAttendance.staffName.toLowerCase()))
+        ), newAttendance];
+        localStorage.setItem('pharmacy_attendance', JSON.stringify(updatedRecords));
+        return updatedRecords;
+      });
+
+      toast({
+        title: isUrdu ? 'حاضری کامیابی سے محفوظ ہو گئی' : 'Attendance saved successfully',
+        variant: 'default'
+      });
+    } catch (error) {
+      console.error('Failed to save attendance:', error);
+      toast({
+        title: isUrdu ? 'حاضری محفوظ کرنے میں ناکامی' : 'Failed to save attendance',
+        variant: 'destructive'
+      });
+    } finally {
+      setShowAttendanceForm(false);
+    }
   };
 
   const handleSaveStaff = (staffData: any) => {
@@ -655,12 +736,59 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="attendance">{t.attendance}</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="daily">{t.dailyView}</TabsTrigger>
+          <TabsTrigger value="monthly">{t.monthlyView}</TabsTrigger>
           <TabsTrigger value="staff">{t.staffManagement}</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="attendance" className="space-y-6">
+        <TabsContent value="daily" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CalendarIcon className="h-5 w-5" />
+                <span>{t.dailyView} - {new Date().toLocaleDateString()}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {todaysAttendance.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.employee}</TableHead>
+                      <TableHead>{t.status}</TableHead>
+                      <TableHead>{t.time}</TableHead>
+                      <TableHead>{t.notes}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {todaysAttendance.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell>{record.staffName}</TableCell>
+                        <TableCell>
+                          <Badge variant={record.status === 'present' ? 'default' : 'destructive'}>
+                            {record.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(record.timestamp).toLocaleTimeString()}</TableCell>
+                        <TableCell>{record.notes}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CalendarIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                  <p>{t.noRecords}</p>
+                  <p className="text-sm">{t.noRecordsDesc}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="monthly" className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -686,18 +814,23 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
               </Button>
             </div>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CalendarIcon className="h-5 w-5" />
-                <span>{t.monthlyView} - {selectedMonth}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredAttendance.length > 0 ? (
-                  filteredAttendance.map((record) => (
+          {filteredAttendance.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <CalendarIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+              <p>{t.noRecords}</p>
+              <p className="text-sm">{t.noRecordsDesc}</p>
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CalendarIcon className="h-5 w-5" />
+                  <span>{t.monthlyView} - {selectedMonth}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredAttendance.map((record) => (
                     <div key={`${record.staffId}-${record.date}`} className="flex items-center justify-between p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -766,17 +899,11 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
                         </div>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <CalendarIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                    <p>{t.noRecords}</p>
-                    <p className="text-sm">{t.noRecordsDesc}</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="staff" className="space-y-6">
@@ -868,6 +995,86 @@ const StaffAttendance: React.FC<StaffAttendanceProps> = ({ isUrdu }) => {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Leave Deduction (Rs)</Label>
+                    <Input 
+                      type="number" 
+                      value={attendanceSettings.leaveDeduction}
+                      onChange={(e) => setAttendanceSettings({
+                        ...attendanceSettings,
+                        leaveDeduction: parseInt(e.target.value) || 0
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Late Deduction (Rs)</Label>
+                    <Input 
+                      type="number" 
+                      value={attendanceSettings.lateDeduction}
+                      onChange={(e) => setAttendanceSettings({
+                        ...attendanceSettings,
+                        lateDeduction: parseInt(e.target.value) || 0
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Early Out Deduction (Rs)</Label>
+                    <Input 
+                      type="number" 
+                      value={attendanceSettings.earlyOutDeduction}
+                      onChange={(e) => setAttendanceSettings({
+                        ...attendanceSettings,
+                        earlyOutDeduction: parseInt(e.target.value) || 0
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Official Clock-in Time</Label>
+                    <Input 
+                      type="time" 
+                      value={attendanceSettings.clockInTime}
+                      onChange={(e) => setAttendanceSettings({
+                        ...attendanceSettings,
+                        clockInTime: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Official Clock-out Time</Label>
+                    <Input 
+                      type="time" 
+                      value={attendanceSettings.clockOutTime}
+                      onChange={(e) => setAttendanceSettings({
+                        ...attendanceSettings,
+                        clockOutTime: e.target.value
+                      })}
+                    />
+                  </div>
+                </div>
+                <Button 
+                  type="button"
+                  onClick={() => {
+                    toast({
+                      title: 'Settings saved successfully',
+                      variant: 'default'
+                    });
+                  }}
+                >
+                  Save Settings
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

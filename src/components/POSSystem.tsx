@@ -442,7 +442,31 @@ const POSSystem: React.FC<POSSystemProps> = ({ isUrdu }) => {
       
       // Process payment
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      // --- CUSTOMER CREDIT & HISTORY UPDATE ---
+      if (paymentMethod === 'credit' && customerInfo.mrNumber) {
+        const customer = customerService.getCustomer(customerInfo.mrNumber);
+        if (customer) {
+          // Deduct credit
+          customerService.updateCredit(customerInfo.mrNumber, -total);
+          // Add to history
+          customerService.addHistoryEntry({
+            customerMr: customerInfo.mrNumber,
+            type: 'medicine',
+            amount: total,
+            description: `POS Sale (Invoice: ${saleData.id})`,
+            medicineDetails: cartItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price }))
+          });
+        } else {
+          toast({
+            title: 'Credit Sale Warning',
+            description: 'Customer MR number not found. Credit not updated.',
+            variant: 'destructive'
+          });
+        }
+      }
+      // --- END CUSTOMER CREDIT & HISTORY UPDATE ---
+
       // Add loyalty points if customer is provided
       let pointsEarned = 0;
       if (customerInfo.phone) {

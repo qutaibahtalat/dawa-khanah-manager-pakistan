@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Clock, Save } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface StaffMember {
   id: number;
@@ -34,15 +34,31 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
   const [formData, setFormData] = useState(() => ({
     staffId: null as number | null,
     staffName: '',
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split('T')[0], // Default to today
     status: 'present' as AttendanceStatus,
     notes: ''
   }));
   
-  const handleStaffNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStaffChange = (value: string) => {
+    const selectedStaff = staffList.find(staff => staff.id === parseInt(value));
     setFormData(prev => ({
       ...prev,
-      staffName: e.target.value
+      staffId: selectedStaff?.id || null,
+      staffName: selectedStaff?.name || ''
+    }));
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      date: e.target.value
+    }));
+  };
+
+  const handleStatusChange = (value: AttendanceStatus) => {
+    setFormData(prev => ({
+      ...prev,
+      status: value
     }));
   };
 
@@ -81,12 +97,32 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
 
   const t = isUrdu ? text.ur : text.en;
 
+  const { toast } = useToast();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!formData.staffName.trim() || !formData.date || !formData.status) {
-      alert('Please fill in all required fields');
+    if (!formData.staffName.trim()) {
+      toast({
+        title: isUrdu ? 'براہ کرم عملے کا رکن منتخب کریں' : 'Please select a staff member',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (!formData.date) {
+      toast({
+        title: isUrdu ? 'براہ کرم تاریخ درج کریں' : 'Please enter a date',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (!formData.status) {
+      toast({
+        title: isUrdu ? 'براہ کرم حالت منتخب کریں' : 'Please select a status',
+        variant: 'destructive'
+      });
       return;
     }
     
@@ -107,15 +143,20 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>{t.staffName} <span className="text-red-500">*</span></Label>
-              <Input
-                type="text"
-                value={formData.staffName}
-                onChange={handleStaffNameChange}
-                placeholder="Enter staff name"
-                required
-              />
+            <div className="space-y-2">
+              <Label htmlFor="staff">{t.staffName}</Label>
+              <Select onValueChange={handleStaffChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffList.map(staff => (
+                    <SelectItem key={staff.id} value={staff.id.toString()}>
+                      {staff.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div>
@@ -123,7 +164,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
               <Input
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                onChange={handleDateChange}
                 required
               />
             </div>
@@ -132,7 +173,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({
               <Label>{t.status}</Label>
               <Select 
                 value={formData.status} 
-                onValueChange={(value: AttendanceStatus) => setFormData({...formData, status: value})}
+                onValueChange={handleStatusChange}
               >
                 <SelectTrigger>
                   <SelectValue />
