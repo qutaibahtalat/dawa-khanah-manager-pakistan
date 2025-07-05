@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getInventory } from '@/utils/inventoryService';
+import { medicineServiceBackend } from '@/services/medicineService.backend';
 import { useAuditLog } from '@/contexts/AuditLogContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,18 +36,7 @@ interface MedicineManagementProps {
   isUrdu: boolean;
 }
 
-// Helper functions for localStorage
-const saveMedicinesToLocal = (medicines: any[]) => {
-  localStorage.setItem('pharmacy_medicines', JSON.stringify(medicines));
-};
-
-const loadMedicinesFromLocal = () => {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('pharmacy_medicines');
-    return saved ? JSON.parse(saved) : [];
-  }
-  return [];
-};
+// Backend migration: Remove localStorage helpers
 
 const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -75,12 +64,26 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
     isProtected: 'false' // Store as string for Select component
   });
   const [medicines, setMedicines] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Save to localStorage whenever medicines change
+  // Load medicines from backend on mount
   useEffect(() => {
-    saveMedicinesToLocal(medicines);
-  }, [medicines]);
+    const fetchMedicines = async () => {
+      setLoading(true);
+      try {
+        const meds = await medicineServiceBackend.getAll();
+        setMedicines(meds);
+        setError(null);
+      } catch (e) {
+        setError('Failed to load medicines');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedicines();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
@@ -97,41 +100,52 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
     }));
   };
 
-  const handleDeleteMedicine = (id: number) => {
-    if (window.confirm(isUrdu ? 'کیا آپ واقعی یہ دوا حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this medicine?')) {
+  const handleDeleteMedicine = async (id: string) => {
+    if (!window.confirm(isUrdu ? 'کیا آپ واقعی یہ دوا حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this medicine?')) return;
+    setLoading(true);
+    try {
+      await medicineServiceBackend.deleteMedicine(id);
+      setMedicines(await medicineServiceBackend.getAll());
       const medicineToDelete = medicines.find(m => m.id === id);
-      const updatedMedicines = medicines.filter(medicine => medicine.id !== id);
-      setMedicines(updatedMedicines);
-      
       logAction('DELETE_MEDICINE', 
         isUrdu ? `دوا حذف کی گئی: ${medicineToDelete?.name}` : `Deleted medicine: ${medicineToDelete?.name}`,
         'medicine',
         id.toString()
       );
-      
       toast({
         title: isUrdu ? 'کامیابی' : 'Success',
         description: isUrdu ? 'دوا کامیابی سے حذف ہو گئی' : 'Medicine deleted successfully',
       });
+    } catch (e) {
+      toast({ title: isUrdu ? 'خرابی' : 'Error', description: isUrdu ? 'دوا حذف نہیں ہو سکی' : 'Failed to delete medicine', variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const confirmDeleteMedicine = () => {
+  const confirmDeleteMedicine = async () => {
     if (deleteTargetId === null) return;
-    const medicineToDelete = medicines.find(m => m.id === deleteTargetId);
-    const updatedMedicines = medicines.filter(medicine => medicine.id !== deleteTargetId);
-    setMedicines(updatedMedicines);
-    logAction('DELETE_MEDICINE', 
-      isUrdu ? `دوا حذف کی گئی: ${medicineToDelete?.name}` : `Deleted medicine: ${medicineToDelete?.name}`,
-      'medicine',
-      deleteTargetId.toString()
-    );
-    toast({
-      title: isUrdu ? 'کامیابی' : 'Success',
-      description: isUrdu ? 'دوا کامیابی سے حذف ہو گئی' : 'Medicine deleted successfully',
-    });
-    setShowDeleteDialog(false);
-    setDeleteTargetId(null);
+    setLoading(true);
+    try {
+      await medicineServiceBackend.deleteMedicine(deleteTargetId.toString());
+      setMedicines(await medicineServiceBackend.getAll());
+      const medicineToDelete = medicines.find(m => m.id === deleteTargetId);
+      logAction('DELETE_MEDICINE', 
+        isUrdu ? `دوا حذف کی گئی: ${medicineToDelete?.name}` : `Deleted medicine: ${medicineToDelete?.name}`,
+        'medicine',
+        deleteTargetId.toString()
+      );
+      toast({
+        title: isUrdu ? 'کامیابی' : 'Success',
+        description: isUrdu ? 'دوا کامیابی سے حذف ہو گئی' : 'Medicine deleted successfully',
+      });
+    } catch (e) {
+      toast({ title: isUrdu ? 'خرابی' : 'Error', description: isUrdu ? 'دوا حذف نہیں ہو سکی' : 'Failed to delete medicine', variant: 'destructive' });
+    } finally {
+      setShowDeleteDialog(false);
+      setDeleteTargetId(null);
+      setLoading(false);
+    }
   };
 
   const cancelDeleteMedicine = () => {
@@ -161,7 +175,7 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveMedicine = (e: React.FormEvent) => {
+  const handleSaveMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -192,28 +206,30 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
       isProtected: formData.isProtected === 'true' // Convert back to boolean
     };
 
-    let updatedMedicines;
-    if (editingId) {
-      const oldMedicine = medicines.find(m => m.id === editingId);
-      updatedMedicines = medicines.map(medicine => 
-        medicine.id === editingId ? medicineData : medicine
-      );
-      
-      logAction('EDIT_MEDICINE', 
-        isUrdu ? `دوا اپ ڈیٹ کی گئی: ${medicineData.name}` : `Updated medicine: ${medicineData.name}`,
-        'medicine',
-        editingId.toString()
-      );
-    } else {
-      updatedMedicines = [...medicines, medicineData];
-      
-      logAction('ADD_MEDICINE', 
-        isUrdu ? `نئی دوا شامل کی گئی: ${medicineData.name}` : `Added new medicine: ${medicineData.name}`,
-        'medicine',
-        medicineData.id.toString()
-      );
+    setLoading(true);
+    try {
+      if (editingId) {
+        await medicineServiceBackend.updateMedicine({ ...medicineData, id: editingId });
+        logAction('EDIT_MEDICINE', 
+          isUrdu ? `دوا اپ ڈیٹ کی گئی: ${medicineData.name}` : `Updated medicine: ${medicineData.name}`,
+          'medicine',
+          editingId.toString()
+        );
+      } else {
+        await medicineServiceBackend.addMedicine(medicineData);
+        logAction('ADD_MEDICINE', 
+          isUrdu ? `نئی دوا شامل کی گئی: ${medicineData.name}` : `Added new medicine: ${medicineData.name}`,
+          'medicine',
+          medicineData.id.toString()
+        );
+      }
+      setMedicines(await medicineServiceBackend.getAll());
+    } catch (e) {
+      toast({ title: isUrdu ? 'خرابی' : 'Error', description: isUrdu ? 'دوا محفوظ نہیں ہو سکی' : 'Failed to save medicine', variant: 'destructive' });
+      return;
+    } finally {
+      setLoading(false);
     }
-    setMedicines(updatedMedicines);
     
     // Reset form and state
     setFormData({
@@ -319,13 +335,16 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
 
   // Load real-time inventory from inventoryService
   useEffect(() => {
-    const fetchInventory = () => {
-      const inventory = getInventory();
-      setMedicines(inventory);
-    };
+    async function fetchInventory() {
+      try {
+        const inventory = await medicineServiceBackend.getAll();
+        setMedicines(inventory);
+      } catch (error) {
+        setMedicines([]);
+        // Optionally show error toast or message
+      }
+    }
     fetchInventory();
-    window.addEventListener('storage', fetchInventory);
-    return () => window.removeEventListener('storage', fetchInventory);
   }, []);
 
   const categories = ['all', 'Analgesic', 'Antibiotic', 'Antacid', 'Antihistamine', 'Cardiac', 'Respiratory'];
@@ -1166,7 +1185,10 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
 )}
       </div>
       <Dialog open={showDeleteDialog} onOpenChange={() => setShowDeleteDialog(false)}>
-        <DialogContent>
+        <DialogContent aria-describedby="medicine-dialog-description">
+          <div id="medicine-dialog-description" className="sr-only">
+            Dialog for managing medicine details
+          </div>
           <DialogHeader>
             <DialogTitle>Delete Medicine</DialogTitle>
           </DialogHeader>
@@ -1181,59 +1203,65 @@ const MedicineManagement: React.FC<MedicineManagementProps> = ({ isUrdu }) => {
       </Dialog>
       {showDeleteOrderDialog && (
         <Dialog open={showDeleteOrderDialog} onOpenChange={() => setShowDeleteOrderDialog(false)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Order</DialogTitle>
-            </DialogHeader>
-            <div className="p-4">
-              <p>Are you sure you want to delete this order?</p>
-              <div className="flex justify-end space-x-2 mt-4">
-                <Button variant="outline" onClick={() => setShowDeleteOrderDialog(false)}>Cancel</Button>
-                <Button onClick={confirmDeleteOrder}>Delete</Button>
-              </div>
+          <DialogContent aria-describedby="medicine-dialog-description">
+            <div id="medicine-dialog-description" className="sr-only">
+              Dialog for managing medicine details
             </div>
-          </DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Order</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p>Are you sure you want to delete this order?</p>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button variant="outline" onClick={() => setShowDeleteOrderDialog(false)}>Cancel</Button>
+              <Button onClick={confirmDeleteOrder}>Delete</Button>
+            </div>
+          </div>
+        </DialogContent>
         </Dialog>
       )}
       {showOrderDetails && selectedOrder && (
         <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Order Details</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Order ID
-                </Label>
-                <div className="col-span-3">{selectedOrder.id}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Supplier
-                </Label>
-                <div className="col-span-3">{selectedOrder.supplier}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Date
-                </Label>
-                <div className="col-span-3">{selectedOrder.date}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Quantity
-                </Label>
-                <div className="col-span-3">{selectedOrder.quantity}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Price
-                </Label>
-                <div className="col-span-3">{selectedOrder.price}</div>
-              </div>
+          <DialogContent aria-describedby="medicine-dialog-description" className="sm:max-w-[600px]">
+            <div id="medicine-dialog-description" className="sr-only">
+              Dialog for managing medicine details
             </div>
-          </DialogContent>
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Order ID
+              </Label>
+              <div className="col-span-3">{selectedOrder.id}</div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Supplier
+              </Label>
+              <div className="col-span-3">{selectedOrder.supplier}</div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Date
+              </Label>
+              <div className="col-span-3">{selectedOrder.date}</div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Quantity
+              </Label>
+              <div className="col-span-3">{selectedOrder.quantity}</div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Price
+              </Label>
+              <div className="col-span-3">{selectedOrder.price}</div>
+            </div>
+          </div>
+        </DialogContent>
         </Dialog>
       )}
       {/* Bulk Import Modal */}

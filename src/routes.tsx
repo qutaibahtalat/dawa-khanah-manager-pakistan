@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createHashRouter } from 'react-router-dom';
 import App from '@/App';
 import Index from '@/pages/Index';
 import { MedicineManagementPage } from '@/pages/MedicineManagementPage';
@@ -9,10 +9,13 @@ import { SupplierManagementPage } from '@/pages/SupplierManagementPage';
 import LoginPage from '@/pages/LoginPage';
 import RequireAuth from '@/components/RequireAuth';
 import { Outlet } from 'react-router-dom';
+import ReportsPreviewPage from '@/pages/ReportsPreviewPage';
+import ReportsPage from '@/pages/ReportsPage';
+import AnalyticsPage from '@/pages/AnalyticsPage';
 
 const AppLayout = () => <App><Outlet /></App>;
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/login',
     element: <LoginPage />,
@@ -28,6 +31,9 @@ export const router = createBrowserRouter([
       { path: '/returns', element: <ReturnsPage /> },
       { path: '/staff', element: <StaffAttendancePage /> },
       { path: '/suppliers', element: <SupplierManagementPage /> },
+      { path: '/reports-preview', element: <ReportsPreviewPage /> },
+      { path: '/reports', element: <ReportsPage /> },
+      { path: '/analytics', element: <AnalyticsPage /> },
     ],
   },
 ]);

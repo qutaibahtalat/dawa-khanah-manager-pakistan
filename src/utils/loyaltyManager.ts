@@ -64,8 +64,8 @@ class LoyaltyManager {
     return Math.floor(amount * this.pointsPerRupee);
   }
 
-  addPoints(customerId: string, amount: number): LoyaltyPoints {
-    const currentPoints = this.getCustomerPoints(customerId);
+  async addPoints(customerId: string, amount: number): Promise<LoyaltyPoints> {
+    const currentPoints = await this.getCustomerPoints(customerId);
     const newPoints = this.calculatePoints(amount);
     
     const updatedPoints: LoyaltyPoints = {
@@ -76,16 +76,13 @@ class LoyaltyManager {
       tier: this.calculateTier(currentPoints.totalSpent + amount)
     };
 
-    this.saveCustomerPoints(updatedPoints);
+    await this.saveCustomerPoints(updatedPoints);
     return updatedPoints;
   }
 
-  getCustomerPoints(customerId: string): LoyaltyPoints {
-    const stored = localStorage.getItem(`loyalty_${customerId}`);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    
+  async getCustomerPoints(customerId: string): Promise<LoyaltyPoints> {
+    const res = await fetch(`/api/loyalty/${customerId}`);
+    if (res.ok) return await res.json();
     return {
       customerId,
       points: 0,
@@ -95,8 +92,12 @@ class LoyaltyManager {
     };
   }
 
-  private saveCustomerPoints(loyaltyPoints: LoyaltyPoints) {
-    localStorage.setItem(`loyalty_${loyaltyPoints.customerId}`, JSON.stringify(loyaltyPoints));
+  private async saveCustomerPoints(loyaltyPoints: LoyaltyPoints) {
+    await fetch(`/api/loyalty/${loyaltyPoints.customerId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loyaltyPoints)
+    });
   }
 
   private calculateTier(totalSpent: number): 'Bronze' | 'Silver' | 'Gold' | 'Platinum' {
@@ -106,13 +107,13 @@ class LoyaltyManager {
     return 'Bronze';
   }
 
-  getAvailableRewards(customerId: string): LoyaltyReward[] {
-    const customerPoints = this.getCustomerPoints(customerId);
+  async getAvailableRewards(customerId: string): Promise<LoyaltyReward[]> {
+    const customerPoints = await this.getCustomerPoints(customerId);
     return this.rewards.filter(reward => reward.pointsRequired <= customerPoints.points);
   }
 
-  redeemReward(customerId: string, rewardId: string): { success: boolean; message: string; discount?: number } {
-    const customerPoints = this.getCustomerPoints(customerId);
+  async redeemReward(customerId: string, rewardId: string): Promise<{ success: boolean; message: string; discount?: number }> {
+    const customerPoints = await this.getCustomerPoints(customerId);
     const reward = this.rewards.find(r => r.id === rewardId);
     
     if (!reward) {
@@ -129,7 +130,7 @@ class LoyaltyManager {
       points: customerPoints.points - reward.pointsRequired
     };
     
-    this.saveCustomerPoints(updatedPoints);
+    await this.saveCustomerPoints(updatedPoints);
     
     return {
       success: true,
@@ -149,19 +150,11 @@ class LoyaltyManager {
     return benefits[tier as keyof typeof benefits] || benefits.Bronze;
   }
 
-  getAllCustomersLoyalty(): LoyaltyPoints[] {
-    const customers: LoyaltyPoints[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('loyalty_')) {
-        const data = localStorage.getItem(key);
-        if (data) {
-          customers.push(JSON.parse(data));
-        }
-      }
-    }
-    return customers.sort((a, b) => b.points - a.points);
-  }
+  async getAllCustomersLoyalty(): Promise<LoyaltyPoints[]> {
+  const res = await fetch('/api/loyalty');
+  if (res.ok) return (await res.json()).sort((a: LoyaltyPoints, b: LoyaltyPoints) => b.points - a.points);
+  return [];
+}
 }
 
 export const loyaltyManager = new LoyaltyManager();

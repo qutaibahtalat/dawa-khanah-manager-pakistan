@@ -55,10 +55,10 @@ class TenantManager {
         branding: {
           primaryColor: '#0057A5',
           secondaryColor: '#ffffff',
-          companyName: 'PharmaCare Pharmacy',
+          companyName: 'Mindspire Pharmacy POS',
           address: 'Karachi, Pakistan',
           phone: '+92-21-1234567',
-          email: 'info@pharmacare.pk',
+          email: 'info@mindspirepos.com',
           taxId: 'NTN-1234567-8'
         },
         subscription: {

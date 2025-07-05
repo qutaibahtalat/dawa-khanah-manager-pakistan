@@ -1,57 +1,40 @@
-import { StockManager } from '../utils/stockManager';
-import { POSItem } from '../types/pos';
-import { taxService } from './taxService';
+import API_ENDPOINTS from '../utils/apiConfig';
+import { InventoryService } from './InventoryService';
+import { Receipt } from '../types/pos';
 
-export class POSService {
-  private stockManager = StockManager.getInstance();
-
-  public async processSale(items: POSItem[]): Promise<boolean> {
-    try {
-      // Apply taxes to items
-      const taxedItems = items.map(item => ({
-        ...item,
-        price: taxService.calculateTotalWithTax(item.price),
-        tax: taxService.calculateTax(item.price)
-      }));
-      
-      // Update stock for each sold item
-      for (const item of taxedItems) {
-        const currentStock = this.stockManager.getStock(item.medicineId);
-        const newQuantity = currentStock - item.quantity;
-        
-        if (newQuantity < 0) {
-          throw new Error(`Insufficient stock for ${item.name}`);
-        }
-        
-        const success = this.stockManager.syncStock(item.medicineId, newQuantity, 'pos');
-        
-        if (!success) {
-          throw new Error(`Failed to update stock for ${item.name}`);
-        }
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('POS transaction failed:', error);
-      return false;
-    }
+export const POSService = {
+  async processTransaction(items: Array<{id: string, quantity: number}>, customerId?: string): Promise<Receipt> {
+    // Process sale and update inventory
+    const response = await fetch(API_ENDPOINTS.POS_TRANSACTIONS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, customerId })
+    });
+    
+    if (!response.ok) throw new Error('Transaction failed');
+    
+    // Update local inventory cache
+    await Promise.all(items.map(item => 
+      InventoryService.adjustStock({
+        medicineId: item.id,
+        quantity: item.quantity,
+        adjustmentType: 'remove',
+        reason: 'POS sale'
+      })
+    ));
+    
+    return response.json();
+  },
+  
+  async generateReceipt(transactionId: string): Promise<Blob> {
+    const response = await fetch(`${API_ENDPOINTS.POS_TRANSACTIONS}/${transactionId}/receipt`);
+    if (!response.ok) throw new Error('Failed to generate receipt');
+    return response.blob();
+  },
+  
+  async getCustomerHistory(customerId: string): Promise<any> {
+    const response = await fetch(`${API_ENDPOINTS.POS_CUSTOMERS}/${customerId}/history`);
+    if (!response.ok) throw new Error('Failed to fetch customer history');
+    return response.json();
   }
-
-  public async getCurrentStock(medicineId: string): Promise<number> {
-    return this.stockManager.getStock(medicineId);
-  }
-
-  public subscribeToStockChanges(callback: (medicineId: string, quantity: number) => void) {
-    return this.stockManager.subscribeToStockChanges(callback);
-  }
-
-  public calculateTax(amount: number): number {
-    return taxService.calculateTax(amount);
-  }
-
-  public calculateTotalWithTax(amount: number): number {
-    return taxService.calculateTotalWithTax(amount);
-  }
-}
-
-export const posService = new POSService();
+};

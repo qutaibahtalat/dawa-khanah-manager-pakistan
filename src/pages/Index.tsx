@@ -44,6 +44,18 @@ const Index = () => {
     localStorage.setItem('pharmacy_user', JSON.stringify(user));
   };
 
+  // Render the correct module
+  const renderModule = () => {
+    switch (activeModule) {
+      case 'medicineDatabase':
+        return <MedicineDatabase isUrdu={isUrdu} />;
+      // ... other cases ...
+      case 'dashboard':
+      default:
+        return <Dashboard isUrdu={isUrdu} />;
+    }
+  };
+
   // Handle user logout
   const handleLogout = () => {
     // Log the logout action before clearing user data

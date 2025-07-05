@@ -1,4 +1,3 @@
-
 export interface License {
   id: string;
   branchId: string;
@@ -39,6 +38,12 @@ class LicenseManager {
   private currentLicense: License | null = null;
   private validationInterval: number | null = null;
   private enforcementEnabled = true;
+  private readonly companyInfo = {
+    name: 'Mindspire Health Technologies',
+    website: 'https://mindspire.org',
+    supportPhone: '+923296273720',
+    supportEmail: 'support@mindspire.org'
+  };
 
   constructor() {
     this.loadFromStorage();
@@ -69,19 +74,19 @@ class LicenseManager {
     switch (plan) {
       case 'monthly':
         expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-        pricing = { amount: 5000, currency: 'PKR', billingCycle: 'monthly' };
+        pricing = { amount: 10000, currency: 'PKR', billingCycle: 'monthly' };
         maxUsers = 5;
         maxBranches = 1;
         break;
       case 'yearly':
         expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-        pricing = { amount: 50000, currency: 'PKR', billingCycle: 'yearly' }; // 2 months free
+        pricing = { amount: 100000, currency: 'PKR', billingCycle: 'yearly' }; // 2 months free
         maxUsers = 10;
         maxBranches = 3;
         break;
       case 'lifetime':
         expiryDate = new Date(2099, 11, 31).toISOString();
-        pricing = { amount: 200000, currency: 'PKR', billingCycle: 'one-time' };
+        pricing = { amount: 300000, currency: 'PKR', billingCycle: 'one-time' };
         maxUsers = 999;
         maxBranches = 999;
         break;
@@ -97,8 +102,8 @@ class LicenseManager {
       status: 'active',
       issuedDate: new Date().toISOString(),
       expiryDate,
-      gracePeriodDays: 7,
-      remainingGraceDays: 7,
+      gracePeriodDays: 14, // Extended grace period
+      remainingGraceDays: 14,
       features: this.getFeaturesForPlan(plan),
       pricing,
       encryptedData: this.encryptLicenseData(licenseKey, hardwareFingerprint),
@@ -275,7 +280,6 @@ class LicenseManager {
   }
 
   private disableApplication() {
-    // Create overlay to disable the application
     const overlay = document.createElement('div');
     overlay.id = 'license-enforcement-overlay';
     overlay.style.cssText = `
@@ -295,9 +299,10 @@ class LicenseManager {
     
     overlay.innerHTML = `
       <div style="text-align: center; max-width: 500px; padding: 40px;">
-        <h2 style="font-size: 24px; margin-bottom: 20px;">License Required</h2>
+        <h2 style="font-size: 24px; margin-bottom: 20px;">Mindspire License Required</h2>
         <p style="font-size: 16px; margin-bottom: 20px;">
-          Your license has expired or is invalid. Please contact support or renew your license to continue using PharmaCare POS.
+          Your license has expired or is invalid. Please contact ${this.companyInfo.name} at 
+          ${this.companyInfo.supportPhone} or ${this.companyInfo.supportEmail} to continue using Pharmacy POS.
         </p>
         <button onclick="location.reload()" style="
           background: #0057A5;
@@ -348,15 +353,15 @@ class LicenseManager {
     switch (plan) {
       case 'monthly':
         newExpiryDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        pricing = { amount: 5000, currency: 'PKR', billingCycle: 'monthly' };
+        pricing = { amount: 10000, currency: 'PKR', billingCycle: 'monthly' };
         break;
       case 'yearly':
         newExpiryDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-        pricing = { amount: 50000, currency: 'PKR', billingCycle: 'yearly' };
+        pricing = { amount: 100000, currency: 'PKR', billingCycle: 'yearly' };
         break;
       case 'lifetime':
         newExpiryDate = new Date(2099, 11, 31);
-        pricing = { amount: 200000, currency: 'PKR', billingCycle: 'one-time' };
+        pricing = { amount: 300000, currency: 'PKR', billingCycle: 'one-time' };
         break;
     }
 
@@ -376,20 +381,6 @@ class LicenseManager {
 
     this.saveToStorage();
     return true;
-  }
-
-  hasFeature(feature: string): boolean {
-    const validation = this.validateLicense();
-    if (!validation.valid || !validation.license) return false;
-    return validation.license.features.includes(feature);
-  }
-
-  getLicenseInfo(): License | null {
-    return this.currentLicense;
-  }
-
-  getAllLicenses(): License[] {
-    return this.licenses;
   }
 
   private generateHardwareFingerprint(): string {
@@ -459,21 +450,6 @@ class LicenseManager {
 
   private saveToStorage() {
     localStorage.setItem('pharmacy_licenses', JSON.stringify(this.licenses));
-  }
-
-  // Public API methods
-  hasFeature(feature: string): boolean {
-    const validation = this.validateLicense();
-    if (!validation.valid || !validation.license) return false;
-    return validation.license.features.includes(feature);
-  }
-
-  getLicenseInfo(): License | null {
-    return this.currentLicense;
-  }
-
-  getAllLicenses(): License[] {
-    return this.licenses;
   }
 
   createLicenseForBranch(branchId: string, branchName: string, plan: License['plan']): License {

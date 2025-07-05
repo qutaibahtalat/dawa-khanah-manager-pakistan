@@ -285,7 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{isUrdu ? <span className="urdu-font">{t.title}</span> : t.title}</h1>
         <div className="flex items-center space-x-4 text-sm text-gray-600">
           <div className="flex items-center space-x-2">
             <CalendarIcon2 className="h-4 w-4" />
@@ -307,7 +307,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
+                    <p className="text-sm text-gray-600 mb-1">{isUrdu ? <span className="urdu-font">{stat.title}</span> : stat.title}</p>
                     <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                   </div>
                   <div className={`p-3 rounded-full ${stat.bgColor}`}>
@@ -328,7 +328,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
             <div className="flex justify-between items-center">
               <CardTitle className="flex items-center space-x-2">
                 <ShoppingCartIcon className="h-5 w-5" />
-                <span>{t.recentSales}</span>
+                <span>{isUrdu ? <span className="urdu-font">{t.recentSales}</span> : t.recentSales}</span>
               </CardTitle>
               <Button 
                 variant="ghost" 
@@ -348,12 +348,12 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
                     <div>
                       <p className="font-medium text-gray-900">{sale.medicine}</p>
                       <p className="text-sm text-gray-600">
-                        {isUrdu ? 'گاہک:' : 'Customer:'} {sale.customer}
+                        {isUrdu ? <span className="urdu-font">گاہک:</span> : 'Customer:'} {sale.customer}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-green-600">
-                        {isUrdu ? 'روپے ' : 'PKR '}
+                        {isUrdu ? <span className="urdu-font">روپے </span> : 'PKR '}
                         {sale.amount.toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-500">
@@ -364,7 +364,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
                 ))
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  {isUrdu ? 'کوئی حالیہ فروخت نہیں ملی' : 'No recent sales found'}
+                  {isUrdu ? <span className="urdu-font">کوئی حالیہ فروخت نہیں ملی</span> : 'No recent sales found'}
                 </div>
               )}
             </div>
@@ -376,7 +376,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <AlertTriangleIcon className="h-5 w-5 text-yellow-600" />
-              <span>{t.expiringMedicines}</span>
+              <span>{isUrdu ? <span className="urdu-font">{t.expiringMedicines}</span> : t.expiringMedicines}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -397,7 +397,7 @@ const Dashboard: React.FC<DashboardProps> = ({ isUrdu }) => {
                 ))
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  {isUrdu ? 'کوئی ختم ہونے والی دوا نہیں' : 'No expiring medicines found'}
+                  {isUrdu ? <span className="urdu-font">کوئی ختم ہونے والی دوا نہیں</span> : 'No expiring medicines found'}
                 </div>
               )}
             </div>

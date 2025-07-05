@@ -29,49 +29,54 @@ export interface PrescriptionMedicine {
   instructions: string;
 }
 
+function getBackendBaseUrl() {
+  // @ts-ignore
+  if (window?.electronAPI?.getBackendBaseUrl) {
+    // @ts-ignore
+    return window.electronAPI.getBackendBaseUrl();
+  }
+  return 'http://localhost:3001/api';
+}
+
 class PrescriptionManager {
-  private storageKey = 'pharmacy_prescriptions';
-
-  getAllPrescriptions(): Prescription[] {
-    try {
-      const stored = localStorage.getItem(this.storageKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+  async getAllPrescriptions(): Promise<Prescription[]> {
+    const res = await fetch(`${getBackendBaseUrl()}/prescriptions`);
+    return res.json();
   }
 
-  savePrescription(prescription: Prescription): boolean {
-    try {
-      const prescriptions = this.getAllPrescriptions();
-      const existingIndex = prescriptions.findIndex(p => p.id === prescription.id);
-      
-      if (existingIndex >= 0) {
-        prescriptions[existingIndex] = prescription;
-      } else {
-        prescriptions.push(prescription);
-      }
-      
-      localStorage.setItem(this.storageKey, JSON.stringify(prescriptions));
+  async savePrescription(prescription: Prescription): Promise<boolean> {
+    if (prescription.id) {
+      // Update existing
+      await fetch(`${getBackendBaseUrl()}/prescriptions/${prescription.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prescription)
+      });
       return true;
-    } catch {
-      return false;
+    } else {
+      // Create new
+      await fetch(`${getBackendBaseUrl()}/prescriptions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prescription)
+      });
+      return true;
     }
   }
 
-  getPrescription(id: string): Prescription | null {
-    const prescriptions = this.getAllPrescriptions();
+  async getPrescription(id: string): Promise<Prescription | null> {
+    const prescriptions = await this.getAllPrescriptions();
     return prescriptions.find(p => p.id === id) || null;
   }
 
-  getCustomerPrescriptions(customerId: string): Prescription[] {
-    const prescriptions = this.getAllPrescriptions();
+  async getCustomerPrescriptions(customerId: string): Promise<Prescription[]> {
+    const prescriptions = await this.getAllPrescriptions();
     return prescriptions.filter(p => p.customerId === customerId);
   }
 
-  dispenseMedicine(prescriptionId: string, medicineIndex: number, quantity: number): boolean {
+  async dispenseMedicine(prescriptionId: string, medicineIndex: number, quantity: number): Promise<boolean> {
     try {
-      const prescription = this.getPrescription(prescriptionId);
+      const prescription = await this.getPrescription(prescriptionId);
       if (!prescription) return false;
 
       if (medicineIndex < 0 || medicineIndex >= prescription.medicines.length) return false;
@@ -92,14 +97,14 @@ class PrescriptionManager {
         prescription.status = 'partial';
       }
 
-      return this.savePrescription(prescription);
+      return await this.savePrescription(prescription);
     } catch {
       return false;
     }
   }
 
-  searchPrescriptions(searchTerm: string): Prescription[] {
-    const prescriptions = this.getAllPrescriptions();
+  async searchPrescriptions(searchTerm: string): Promise<Prescription[]> {
+    const prescriptions = await this.getAllPrescriptions();
     const term = searchTerm.toLowerCase();
     
     return prescriptions.filter(p => 
@@ -114,15 +119,16 @@ class PrescriptionManager {
     );
   }
 
-  getPendingPrescriptions(): Prescription[] {
-    return this.getAllPrescriptions().filter(p => p.status === 'pending');
+  async getPendingPrescriptions(): Promise<Prescription[]> {
+    const prescriptions = await this.getAllPrescriptions();
+    return prescriptions.filter(p => p.status === 'pending');
   }
 
-  getExpiringPrescriptions(days: number = 30): Prescription[] {
+  async getExpiringPrescriptions(days: number = 30): Promise<Prescription[]> {
+    const prescriptions = await this.getAllPrescriptions();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
-    return this.getAllPrescriptions().filter(p => {
+    return prescriptions.filter(p => {
       const prescriptionDate = new Date(p.prescriptionDate);
       return prescriptionDate >= cutoffDate && p.status !== 'completed';
     });
@@ -185,11 +191,9 @@ class PrescriptionManager {
       .map(([name, count]) => ({ name, count }));
   }
 
-  deletePrescription(id: string): boolean {
+  async deletePrescription(id: string): Promise<boolean> {
     try {
-      const prescriptions = this.getAllPrescriptions();
-      const filtered = prescriptions.filter(p => p.id !== id);
-      localStorage.setItem(this.storageKey, JSON.stringify(filtered));
+      await fetch(`${getBackendBaseUrl()}/prescriptions/${id}`, { method: 'DELETE' });
       return true;
     } catch {
       return false;

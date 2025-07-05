@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { generateMedicineDatabase, searchMedicines, getLowStockMedicines, getExpiringMedicines, Medicine } from '../utils/medicineDatabase';
+import { medicineServiceBackend } from '@/services/medicineService.backend';
+import { Medicine } from '@/types/medicine';
 import { reportExporter } from '../utils/reportExporter';
 import commonPakistaniMedicines from '@/data/commonPakistaniMedicines';
 
@@ -46,8 +47,20 @@ const MedicineDatabase: React.FC<MedicineDatabaseProps> = ({ isUrdu }) => {
   };
 
   useEffect(() => {
-    setMedicines(commonPakistaniMedicines);
-    setFilteredMedicines(commonPakistaniMedicines);
+    const fetchMedicines = async () => {
+      setLoading(true);
+      try {
+        const meds = await medicineServiceBackend.getAll();
+        setMedicines(meds);
+        setFilteredMedicines(meds);
+      } catch (e) {
+        setMedicines([]);
+        setFilteredMedicines([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedicines();
   }, []);
 
   useEffect(() => {

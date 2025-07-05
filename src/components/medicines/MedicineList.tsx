@@ -21,43 +21,18 @@ export function MedicineList() {
   const [medicines, setMedicines] = React.useState<Medicine[]>([]);
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  // TODO: Fetch medicines from API/service
+  // Fetch medicines from backend API
   React.useEffect(() => {
-    setMedicines([
-      { 
-        id: '1', 
-        name: 'Paracetamol', 
-        category: 'Pain Relief', 
-        currentStock: 50, 
-        price: 10,
-        lastPurchasePrice: 8,
-        lastSupplierId: 'supplier-1',
-        lastPurchaseDate: '2023-10-15',
-        batchNumber: 'BATCH-001'
-      },
-      { 
-        id: '2', 
-        name: 'Ibuprofen', 
-        category: 'Pain Relief', 
-        currentStock: 30, 
-        price: 15,
-        lastPurchasePrice: 12,
-        lastSupplierId: 'supplier-2',
-        lastPurchaseDate: '2023-10-10',
-        batchNumber: 'BATCH-002'
-      },
-      { 
-        id: '3', 
-        name: 'Amoxicillin', 
-        category: 'Antibiotic', 
-        currentStock: 20, 
-        price: 25,
-        lastPurchasePrice: 20,
-        lastSupplierId: 'supplier-1',
-        lastPurchaseDate: '2023-10-05',
-        batchNumber: 'BATCH-003'
-      },
-    ]);
+    async function fetchInventory() {
+      try {
+        const inventory = await import('@/api/backend').then(mod => mod.getInventory());
+        setMedicines(inventory);
+      } catch (error) {
+        setMedicines([]);
+        // Optionally show error toast or message
+      }
+    }
+    fetchInventory();
   }, []);
 
   const handleAddStock = async (medicineId: string, data: {

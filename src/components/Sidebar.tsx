@@ -58,7 +58,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       logout: 'Logout',
       welcome: 'Welcome',
       prescriptions: 'Prescriptions',
-      enhancedReports: 'Analytics',
+      analytics: 'Analytics',
+      reportsPreview: 'Reports',
       returns: 'Returns'
     },
     ur: {
@@ -79,7 +80,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       logout: 'لاگ آؤٹ',
       welcome: 'خوش آمدید',
       prescriptions: 'نسخے',
-      enhancedReports: 'تجزیات',
+      analytics: 'تجزیات',
+      reportsPreview: 'رپورٹس',
       returns: 'واپسی'
     }
   };
@@ -90,7 +92,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const allMenuItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
     { id: 'medicines', label: t.medicines, icon: Package },
-    
     { id: 'pos', label: t.pos, icon: ShoppingCart },
     { id: 'inventory', label: t.inventory, icon: Warehouse },
     { id: 'prescriptions', label: t.prescriptions, icon: FileText },
@@ -98,7 +99,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'suppliers', label: t.suppliers, icon: Building },
     { id: 'staff-attendance', label: t.staffAttendance, icon: UserCheck },
     { id: 'tax-module', label: t.taxModule, icon: Receipt },
-    { id: 'enhanced-reports', label: t.enhancedReports, icon: BarChart3 },
+    { id: 'reports', label: t.reports, icon: FileBarChart },
+    { id: 'analytics', label: t.analytics, icon: BarChart3 },
     { id: 'returns', label: t.returns, icon: ArrowLeftRight },
     { id: 'audit-logs', label: t.auditLogs, icon: Clock },
     { id: 'expenses', label: t.expenses, icon: Calculator },
@@ -171,7 +173,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => setActiveModule(item.id)}
             >
               <Icon className={`h-4 w-4 ${isUrdu ? 'ml-2' : 'mr-2'}`} />
-              {item.label}
+              {isUrdu ? <span className="urdu-font">{item.label}</span> : item.label}
             </Button>
           );
         })}

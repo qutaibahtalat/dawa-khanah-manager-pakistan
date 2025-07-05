@@ -45,8 +45,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
 
   const text = {
     en: {
-      title: 'Pharmacy Management System',
-      subtitle: 'Sign in to your account',
+      title: 'Mindspire Pharmacy POS',
+      subtitle: 'Pakistan #1 Modern Pharmacy Management System',
       username: 'Username',
       password: 'Password',
       login: 'Sign In',
@@ -55,8 +55,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
       pharmacistDemo: 'Pharmacist Demo'
     },
     ur: {
-      title: 'فارمیسی منیجمنٹ سسٹم',
-      subtitle: 'اپنے اکاؤنٹ میں لاگ ان کریں',
+      
+      title: 'مائنڈسپائر فارمیسی POS',
+      subtitle: 'پاکستان کا #1 جدید فارمیسی مینجمنٹ سسٹم',
       username: 'صارف نام',
       password: 'پاس ورڈ',
       login: 'لاگ ان',
@@ -69,16 +70,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
   const t = isUrdu ? text.ur : text.en;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-500 to-green-400 animate-gradient-x p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-lg animate-fade-in">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-blue-600 p-3 rounded-full">
               <Pill className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">{t.title}</CardTitle>
-          <p className="text-gray-600">{t.subtitle}</p>
+          <CardTitle className={`text-3xl font-extrabold text-primary drop-shadow-md animate-fade-in-slow${isUrdu ? ' urdu-font' : ''}`}>{isUrdu ? <span className="urdu-font">{t.title}</span> : t.title}</CardTitle>
+          <p className={`text-base font-medium text-gray-600 mt-2 animate-fade-in-slow${isUrdu ? ' urdu-font' : ''}`}>{isUrdu ? <span className="urdu-font">{t.subtitle}</span> : t.subtitle}</p>
+          
           
           <div className="flex justify-center mt-4">
             <Button
@@ -87,7 +89,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isUrdu, setIsUrdu }) => {
               onClick={() => setIsUrdu(true)}
               className="mr-2"
             >
-              اردو
+              <span className="urdu-font">اردو</span>
             </Button>
             <Button
               variant={!isUrdu ? "default" : "outline"}

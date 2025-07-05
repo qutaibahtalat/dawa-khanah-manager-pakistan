@@ -22,91 +22,108 @@ type RecordPaymentParams = {
   status?: 'completed' | 'pending' | 'failed' | 'refunded';
 };
 
+function getBackendBaseUrl() {
+  // @ts-ignore
+  if (window?.electronAPI?.getBackendBaseUrl) {
+    // @ts-ignore
+    return window.electronAPI.getBackendBaseUrl();
+  }
+  return 'http://localhost:3001/api';
+}
+
 export const supplierService = {
-  createOrder: async (order: CreateOrderParams): Promise<SupplierOrder> => {
-    const newOrder: SupplierOrder = {
-      ...order,
-      id: Math.random().toString(36).substring(2, 9),
-      totalCost: order.quantity * order.unitPrice,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      actualDelivery: null,
-      receivedQuantity: 0
-    };
-    
-    const orders = JSON.parse(localStorage.getItem('supplierOrders') || '[]');
-    orders.push(newOrder);
-    localStorage.setItem('supplierOrders', JSON.stringify(orders));
-    
-    return newOrder;
+  // --- SUPPLIERS CRUD ---
+  async getAllSuppliers(): Promise<Supplier[]> {
+    const res = await fetch(`${getBackendBaseUrl()}/suppliers`);
+    return res.json();
   },
-  
-  getOrdersBySupplier: (supplierId: string): SupplierOrder[] => {
-    const orders = JSON.parse(localStorage.getItem('supplierOrders') || '[]');
-    return orders
-      .filter((order: SupplierOrder) => order.supplierId === supplierId)
-      .sort((a: SupplierOrder, b: SupplierOrder) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  async createSupplier(supplier: Partial<Supplier>): Promise<{ id: number }> {
+    const res = await fetch(`${getBackendBaseUrl()}/suppliers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(supplier)
+    });
+    return res.json();
   },
-  
-  updateOrderStatus: (orderId: string, status: 'pending' | 'delivered' | 'cancelled' | 'partially_delivered', receivedQuantity?: number) => {
-    const orders = JSON.parse(localStorage.getItem('supplierOrders') || '[]');
-    const orderIndex = orders.findIndex((order: SupplierOrder) => order.id === orderId);
-    if (orderIndex !== -1) {
-      const updatedOrder = {
-        ...orders[orderIndex],
-        status,
-        updatedAt: new Date(),
-        actualDelivery: status === 'delivered' || status === 'partially_delivered' ? new Date() : null,
-        receivedQuantity: receivedQuantity || orders[orderIndex].receivedQuantity
-      };
-      orders[orderIndex] = updatedOrder;
-      localStorage.setItem('supplierOrders', JSON.stringify(orders));
-      return updatedOrder;
-    }
-    return null;
+  async updateSupplier(id: number, supplier: Partial<Supplier>): Promise<any> {
+    const res = await fetch(`${getBackendBaseUrl()}/suppliers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(supplier)
+    });
+    return res.json();
   },
-  
-  recordPayment: async (payment: RecordPaymentParams): Promise<SupplierPayment> => {
-    const newPayment: SupplierPayment = {
-      ...payment,
-      id: Math.random().toString(36).substring(2, 9),
-      status: payment.status || 'completed',
-      createdAt: new Date()
-    };
-    
-    const payments = JSON.parse(localStorage.getItem('supplierPayments') || '[]');
-    payments.push(newPayment);
-    localStorage.setItem('supplierPayments', JSON.stringify(payments));
-    
-    // Update supplier balance
-    this.updateSupplierBalance(payment.supplierId, -payment.amount);
-    
-    return newPayment;
+  async deleteSupplier(id: number): Promise<any> {
+    const res = await fetch(`${getBackendBaseUrl()}/suppliers/${id}`, { method: 'DELETE' });
+    return res.json();
   },
-  
-  getPaymentsBySupplier: (supplierId: string): SupplierPayment[] => {
-    const payments = JSON.parse(localStorage.getItem('supplierPayments') || '[]');
-    return payments
-      .filter((payment: SupplierPayment) => payment.supplierId === supplierId)
-      .sort((a: SupplierPayment, b: SupplierPayment) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // --- SUPPLIER ORDERS ---
+  async createOrder(order: CreateOrderParams): Promise<SupplierOrder> {
+    const now = new Date().toISOString();
+    const res = await fetch(`${getBackendBaseUrl()}/supplier-orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...order,
+        totalCost: order.quantity * order.unitPrice,
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now,
+        actualDelivery: null,
+        receivedQuantity: 0
+      })
+    });
+    const result = await res.json();
+    return { ...order, id: result.id, totalCost: order.quantity * order.unitPrice, status: 'pending', createdAt: now, updatedAt: now, actualDelivery: null, receivedQuantity: 0 };
   },
-  
-  updateSupplierBalance: (supplierId: string, amount: number) => {
-    const suppliers = JSON.parse(localStorage.getItem('suppliers') || '[]');
-    const supplierIndex = suppliers.findIndex((s: Supplier) => s.id === supplierId);
-    if (supplierIndex !== -1) {
-      suppliers[supplierIndex].currentBalance = 
-        (suppliers[supplierIndex].currentBalance || 0) + amount;
-      localStorage.setItem('suppliers', JSON.stringify(suppliers));
-    }
+  async getOrdersBySupplier(supplierId: string): Promise<SupplierOrder[]> {
+    const res = await fetch(`${getBackendBaseUrl()}/supplier-orders`);
+    const allOrders = await res.json();
+    return allOrders.filter((order: SupplierOrder) => order.supplierId == supplierId)
+      .sort((a: SupplierOrder, b: SupplierOrder) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
-  
-  getSupplierBalance: (supplierId: string): number => {
-    const suppliers = JSON.parse(localStorage.getItem('suppliers') || '[]');
-    const supplier = suppliers.find((s: Supplier) => s.id === supplierId);
+  async updateOrderStatus(orderId: number, status: 'pending' | 'delivered' | 'cancelled' | 'partially_delivered', receivedQuantity?: number, notes?: string): Promise<any> {
+    const now = new Date().toISOString();
+    const actualDelivery = (status === 'delivered' || status === 'partially_delivered') ? now : null;
+    const res = await fetch(`${getBackendBaseUrl()}/supplier-orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, updatedAt: now, actualDelivery, receivedQuantity, notes })
+    });
+    return res.json();
+  },
+
+  // --- SUPPLIER PAYMENTS ---
+  async recordPayment(payment: RecordPaymentParams): Promise<SupplierPayment> {
+    const now = new Date().toISOString();
+    const res = await fetch(`${getBackendBaseUrl()}/supplier-payments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payment, status: payment.status || 'completed', createdAt: now })
+    });
+    const result = await res.json();
+    return { ...payment, id: result.id, status: payment.status || 'completed', createdAt: now } as SupplierPayment;
+  },
+  async getPaymentsBySupplier(supplierId: string): Promise<SupplierPayment[]> {
+    const res = await fetch(`${getBackendBaseUrl()}/supplier-payments`);
+    const allPayments = await res.json();
+    return allPayments.filter((p: SupplierPayment) => p.supplierId == supplierId)
+      .sort((a: SupplierPayment, b: SupplierPayment) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  },
+
+  // --- BALANCE ---
+  async updateSupplierBalance(supplierId: number, amount: number): Promise<any> {
+    // Fetch supplier, update balance, then PUT
+    const suppliers = await this.getAllSuppliers();
+    const supplier = suppliers.find((s) => s.id == supplierId);
+    if (!supplier) return;
+    supplier.currentBalance = (supplier.currentBalance || 0) + amount;
+    return this.updateSupplier(supplierId, { currentBalance: supplier.currentBalance });
+  },
+  async getSupplierBalance(supplierId: string): Promise<number> {
+    const suppliers = await this.getAllSuppliers();
+    const supplier = suppliers.find((s) => s.id == supplierId);
     return supplier?.currentBalance || 0;
   }
 };

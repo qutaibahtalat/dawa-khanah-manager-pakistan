@@ -12,8 +12,15 @@ type CustomerListProps = {
 };
 
 const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
-  const [customers, setCustomers] = React.useState<Customer[]>(customerService.getCustomers());
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
+
+  React.useEffect(() => {
+    customerService.getCustomers().then(setCustomers).catch(e => {
+      // Optionally handle error
+      setCustomers([]);
+    });
+  }, []);
 
   const columns = [
     {
@@ -46,8 +53,16 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
       accessorKey: 'lastVisit',
       header: 'Last Visit',
       cell: ({ row }) => {
-        const visits = customerService.getVisitHistory(row.original.mrNumber);
-        const lastVisit = visits.length > 0 ? new Date(visits[visits.length - 1].date).toLocaleDateString() : '-';
+        const [lastVisit, setLastVisit] = React.useState<string>('-');
+        React.useEffect(() => {
+          customerService.getVisitHistory(row.original.mrNumber).then(visits => {
+            if (visits && visits.length > 0) {
+              setLastVisit(new Date(visits[visits.length - 1].date).toLocaleDateString());
+            } else {
+              setLastVisit('-');
+            }
+          }).catch(() => setLastVisit('-'));
+        }, [row.original.mrNumber]);
         return <span className="text-gray-500 text-xs">{lastVisit}</span>;
       },
     },

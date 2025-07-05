@@ -382,6 +382,7 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
         )}
         {(filter.interval === 'day') && (
           <DatePicker
+            selectsMultiple={false}
             selected={filter.dateRange.from ? new Date(filter.dateRange.from) : null}
             onChange={date => setFilter(f => ({ ...f, dateRange: { ...f.dateRange, from: date ? date.toISOString().split('T')[0] : '' } }))}
             dateFormat="yyyy-MM-dd"
@@ -474,6 +475,7 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
       <div className="flex items-center space-x-4">
         <Calendar className="h-5 w-5 text-gray-400" />
         <DatePicker
+          selectsMultiple={false}
           selected={dateRange.from ? new Date(dateRange.from) : null}
           onChange={(date: Date) => setDateRange({...dateRange, from: date ? date.toISOString().split('T')[0] : ''})}
           selectsStart
@@ -489,6 +491,7 @@ const EnhancedReports: React.FC<EnhancedReportsProps> = ({ isUrdu }) => {
         />
         <span>to</span>
         <DatePicker
+          selectsMultiple={false}
           selected={dateRange.to ? new Date(dateRange.to) : null}
           onChange={(date: Date) => setDateRange({...dateRange, to: date ? date.toISOString().split('T')[0] : ''})}
           selectsEnd

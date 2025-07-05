@@ -39,6 +39,13 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({
   const { settings } = useSettings();
   const [isOnline, setIsOnline] = React.useState(navigator.onLine);
 
+  // --- Insert logo in header ---
+  // Place this at the start of your main header render/return:
+  // {settings.logo && (
+  //   <img src={settings.logo} alt="Pharmacy Logo" className="h-10 mr-4 rounded bg-white border shadow" style={{objectFit: 'contain'}} />
+  // )}
+
+
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -80,9 +87,9 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({
   // Notification dropdown state
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [notifications, setNotifications] = React.useState([
-    { id: 1, text: isUrdu ? 'ادویات کم اسٹاک میں ہیں' : 'Low stock medicines', read: false },
-    { id: 2, text: isUrdu ? 'رپورٹ ایکسپورٹ ہو گئی' : 'Report exported', read: false },
-    { id: 3, text: isUrdu ? 'آج کی سیلز مکمل ہو گئی' : 'Today\'s sales completed', read: false }
+    { id: 1, text: isUrdu ? <span className="urdu-font">ادویات کم اسٹاک میں ہیں</span> : 'Low stock medicines', read: false },
+    { id: 2, text: isUrdu ? <span className="urdu-font">رپورٹ ایکسپورٹ ہو گئی</span> : 'Report exported', read: false },
+    { id: 3, text: isUrdu ? <span className="urdu-font">آج کی سیلز مکمل ہو گئی</span> : 'Today\'s sales completed', read: false }
   ]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -96,14 +103,17 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({
   return (
     <div className="flex items-center justify-between p-4 bg-background border-b">
       <div className="flex items-center space-x-4">
-        <h1 className="text-title font-poppins">
-          <span className="text-xl font-bold truncate max-w-xs">
-            {settings.companyName || 'Pharmacy'}
-          </span>
-        </h1>
+        <div className="flex flex-col">
+  <h1 className="text-title font-poppins">
+    <span className="text-2xl font-extrabold truncate max-w-xs text-primary">
+      {settings.companyName || 'Mindspire Pharmacy POS'}
+    </span>
+  </h1>
+
+</div>
         <Badge variant={isOnline ? "default" : "destructive"} className="flex items-center space-x-1">
           {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-          <span>{isOnline ? t.online : t.offline}</span>
+          <span>{isOnline ? <span className="urdu-font">{t.online}</span> : <span className="urdu-font">{t.offline}</span>}</span>
         </Badge>
       </div>
 

@@ -9,12 +9,23 @@ import { AuditLogProvider } from "./contexts/AuditLogContext";
 import { DataProvider } from "./contexts/DataContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { router } from './routes';
+import { useState, useCallback } from 'react';
+import SessionTimeoutModal from './components/SessionTimeoutModal';
+import { useSessionTimeout } from './hooks/useSessionTimeout';
 
 const queryClient = new QueryClient();
 
 import ErrorBoundary from './ErrorBoundary';
 
 export default function App({ children }: { children?: React.ReactNode }) {
+  const [timeoutOpen, setTimeoutOpen] = useState(false);
+  const handleTimeout = useCallback(() => setTimeoutOpen(true), []);
+  const handleLoginAgain = useCallback(() => {
+    setTimeoutOpen(false);
+    window.location.reload();
+  }, []);
+  useSessionTimeout(15 * 60 * 1000, handleTimeout); // 15 minutes
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -32,6 +43,7 @@ export default function App({ children }: { children?: React.ReactNode }) {
               </InventoryProvider>
             </SettingsProvider>
           </AuthProvider>
+          <SessionTimeoutModal open={timeoutOpen} onLogin={handleLoginAgain} />
         </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>

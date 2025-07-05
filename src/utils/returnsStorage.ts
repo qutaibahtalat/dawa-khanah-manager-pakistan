@@ -16,61 +16,57 @@ export interface SupplierReturnItem {
   date: string;
 }
 
-const RETURNS_STORAGE_KEY = 'pharmacy_returns';
-const SUPPLIER_RETURNS_KEY = 'pharmacy_supplier_returns';
+export function getBackendBaseUrl() {
+  // @ts-ignore
+  if (window?.electronAPI?.getBackendBaseUrl) {
+    // @ts-ignore
+    return window.electronAPI.getBackendBaseUrl();
+  }
+  return 'http://192.168.100.120:3002/api';
+}
 
-export const saveReturn = (returnItem: Omit<ReturnItem, 'id' | 'date'>): ReturnItem => {
-  const returns = getReturns();
-  const newReturn: ReturnItem = {
-    ...returnItem,
-    id: Date.now(),
-    date: new Date().toISOString(),
-  };
-  
-  const updatedReturns = [...returns, newReturn];
-  localStorage.setItem(RETURNS_STORAGE_KEY, JSON.stringify(updatedReturns));
-  return newReturn;
+export const saveReturn = async (returnItem: Omit<ReturnItem, 'id' | 'date'>): Promise<ReturnItem> => {
+  const res = await fetch(`${getBackendBaseUrl()}/returns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...returnItem, date: new Date().toISOString() })
+  });
+  const result = await res.json();
+  return { ...returnItem, id: result.id, date: new Date().toISOString() };
 };
 
-export const getReturns = (): ReturnItem[] => {
-  if (typeof window === 'undefined') return [];
-  
-  const savedReturns = localStorage.getItem(RETURNS_STORAGE_KEY);
-  return savedReturns ? JSON.parse(savedReturns) : [];
+export const getReturns = async (): Promise<ReturnItem[]> => {
+  const res = await fetch(`${getBackendBaseUrl()}/returns`);
+  return res.json();
 };
 
-export const deleteReturn = (id: number): void => {
-  const returns = getReturns();
-  const updatedReturns = returns.filter((item) => item.id !== id);
-  localStorage.setItem(RETURNS_STORAGE_KEY, JSON.stringify(updatedReturns));
+export const deleteReturn = async (id: number): Promise<void> => {
+  await fetch(`${getBackendBaseUrl()}/returns/${id}`, { method: 'DELETE' });
 };
 
-export const saveSupplierReturn = (data: Omit<SupplierReturnItem, 'id' | 'date'>): SupplierReturnItem => {
-  const returns = getSupplierReturns();
-  const newReturn: SupplierReturnItem = {
-    ...data,
-    id: Date.now(),
-    date: new Date().toISOString(),
-  };
-  
-  const updatedReturns = [...returns, newReturn];
-  localStorage.setItem(SUPPLIER_RETURNS_KEY, JSON.stringify(updatedReturns));
-  return newReturn;
+export const saveSupplierReturn = async (data: Omit<SupplierReturnItem, 'id' | 'date'>): Promise<SupplierReturnItem> => {
+  const res = await fetch(`${getBackendBaseUrl()}/supplier-returns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...data, date: new Date().toISOString() })
+  });
+  const result = await res.json();
+  return { ...data, id: result.id, date: new Date().toISOString() };
 };
 
-export const getSupplierReturns = (): SupplierReturnItem[] => {
-  if (typeof window === 'undefined') return [];
-  
-  const savedReturns = localStorage.getItem(SUPPLIER_RETURNS_KEY);
-  return savedReturns ? JSON.parse(savedReturns) : [];
+export const getSupplierReturns = async (): Promise<SupplierReturnItem[]> => {
+  const res = await fetch(`${getBackendBaseUrl()}/supplier-returns`);
+  return res.json();
 };
 
-export const deleteSupplierReturn = (id: number): void => {
-  const returns = getSupplierReturns();
-  const updatedReturns = returns.filter((item) => item.id !== id);
-  localStorage.setItem(SUPPLIER_RETURNS_KEY, JSON.stringify(updatedReturns));
+export const deleteSupplierReturn = async (id: number): Promise<void> => {
+  await fetch(`${getBackendBaseUrl()}/supplier-returns/${id}`, { method: 'DELETE' });
 };
 
-export const clearReturns = (): void => {
-  localStorage.removeItem(RETURNS_STORAGE_KEY);
+export const clearReturns = async (): Promise<void> => {
+  // No direct backend API for clear all; delete all individually if needed
+  const returns = await getReturns();
+  await Promise.all(returns.map(r => deleteReturn(r.id)));
+  const supplierReturns = await getSupplierReturns();
+  await Promise.all(supplierReturns.map(r => deleteSupplierReturn(r.id)));
 };

@@ -13,8 +13,29 @@ type CustomerDetailsProps = {
 };
 
 export function CustomerDetails({ mrNumber, onBack }: CustomerDetailsProps) {
-  const [customer, setCustomer] = useState(customerService.getCustomer(mrNumber));
-  const history = customerService.getCustomerHistory(mrNumber);
+  const [customer, setCustomer] = useState<Customer | undefined>(undefined);
+  const [history, setHistory] = useState<CustomerHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      customerService.getCustomer(mrNumber),
+      customerService.getCustomerHistory(mrNumber)
+    ]).then(([cust, hist]) => {
+      setCustomer(cust);
+      setHistory(hist);
+      setLoading(false);
+    }).catch(() => {
+      setCustomer(undefined);
+      setHistory([]);
+      setLoading(false);
+    });
+  }, [mrNumber]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   if (!customer) {
     return <div>Customer not found</div>;

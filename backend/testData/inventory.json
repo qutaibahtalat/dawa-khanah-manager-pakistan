@@ -1,0 +1,30 @@
+[
+  {
+    "id": "1",
+    "name": "Panadol",
+    "category": "Pain Relief",
+    "stock": 100,
+    "minStock": 10,
+    "maxStock": 200,
+    "purchasePrice": 5.99,
+    "salePrice": 8.99,
+    "manufacturer": "GSK",
+    "batchNo": "PAN2023",
+    "expiryDate": "2025-12-31",
+    "manufacturingDate": "2023-01-15"
+  },
+  {
+    "id": "2",
+    "name": "Augmentin",
+    "category": "Antibiotic",
+    "stock": 50,
+    "minStock": 5,
+    "maxStock": 100,
+    "purchasePrice": 15.50,
+    "salePrice": 22.99,
+    "manufacturer": "GSK",
+    "batchNo": "AUG2023",
+    "expiryDate": "2024-06-30",
+    "manufacturingDate": "2022-12-01"
+  }
+]

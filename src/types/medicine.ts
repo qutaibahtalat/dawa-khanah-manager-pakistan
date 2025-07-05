@@ -54,3 +54,11 @@ export interface InvoiceTracking {
     batchNumber?: string;
   }[];
 }
+
+export interface StockAdjustment {
+  medicineId: string;
+  quantity: number;
+  adjustmentType: 'add' | 'remove';
+  reason?: string;
+  timestamp?: Date;
+}

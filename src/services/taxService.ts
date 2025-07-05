@@ -6,35 +6,41 @@ type TaxConfig = {
   inclusive: boolean;
 };
 
-const TAX_CONFIG_KEY = 'taxConfig';
+function getBackendBaseUrl() {
+  // @ts-ignore
+  if (window?.electronAPI?.getBackendBaseUrl) {
+    // @ts-ignore
+    return window.electronAPI.getBackendBaseUrl();
+  }
+  return 'http://localhost:3001/api';
+}
 
 export class TaxService {
-  private taxConfig: TaxConfig;
+  private taxConfig: TaxConfig = { enabled: true, rate: 0.17, inclusive: false };
 
-  constructor() {
-    const savedConfig = localStorage.getItem(TAX_CONFIG_KEY);
-    this.taxConfig = savedConfig 
-      ? JSON.parse(savedConfig) 
-      : {
-          enabled: true,
-          rate: 0.17, // 17% tax rate
-          inclusive: false
-        };
+  async fetchTaxConfig(): Promise<TaxConfig> {
+    const res = await fetch(`${getBackendBaseUrl()}/tax-config`);
+    const config = await res.json();
+    this.taxConfig = {
+      enabled: !!config.enabled,
+      rate: config.rate,
+      inclusive: !!config.inclusive
+    };
+    return this.taxConfig;
+  }
+
+  async updateTaxConfig(config: Partial<TaxConfig>): Promise<void> {
+    const newConfig = { ...this.taxConfig, ...config };
+    await fetch(`${getBackendBaseUrl()}/tax-config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newConfig)
+    });
+    this.taxConfig = newConfig;
   }
 
   public getTaxConfig(): TaxConfig {
     return this.taxConfig;
-  }
-
-  public updateTaxConfig(config: Partial<TaxConfig>): void {
-    const newConfig = { 
-      ...this.taxConfig, 
-      ...config,
-      rate: Math.max(0, Math.min(1, config.rate ?? this.taxConfig.rate)) // Clamp between 0-100%
-    };
-    
-    this.taxConfig = newConfig;
-    localStorage.setItem(TAX_CONFIG_KEY, JSON.stringify(newConfig));
   }
 
   public calculateTax(amount: number): number {

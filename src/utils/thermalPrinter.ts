@@ -133,7 +133,7 @@ export class ThermalPrinter {
       const content = this.generateReceiptContent(invoiceData);
       
       // For web-based printing, we'll use the browser's print API
-      // In a real Electron app, you would use node-thermal-printer or similar
+      // In a real Desktop app, you would use node-thermal-printer or similar
       
       const printWindow = window.open('', '_blank');
       if (!printWindow) return false;
@@ -275,7 +275,7 @@ export const createSampleInvoice = (): InvoiceData => ({
   invoiceNumber: 'INV-001',
   date: new Date().toLocaleDateString(),
   time: new Date().toLocaleTimeString(),
-  pharmacyName: 'PharmaCare Plus',
+  pharmacyName: 'Mindspire Pharmacy POS Plus',
   pharmacyAddress: '123 Main Street, Lahore',
   pharmacyPhone: '+92-42-1234567',
   customerName: 'Ahmed Hassan',

@@ -1,0 +1,33 @@
+{
+  "name": "mindspire-pharmacy-pos-electron",
+  "version": "1.0.0",
+  "author": "Your Name <your.email@example.com>",
+  "description": "Electron wrapper for Mindspire Pharmacy POS React app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "22.3.27",
+    "electron-builder": "23.6.0"
+  },
+  "build": {
+    "productName": "Mindspire Pharmacy POS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "signingHashAlgorithms": ["sha1", "sha256"],
+      "appId": "com.mindspire.pharmacy.pos",
+      "icon": "icon.ico"
+    }
+  }
+}

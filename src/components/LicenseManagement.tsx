@@ -195,7 +195,10 @@ const LicenseManagement: React.FC<LicenseManagementProps> = ({ isUrdu }) => {
                 {text.createLicense}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-describedby="license-dialog-description">
+              <div id="license-dialog-description" className="sr-only">
+                Dialog for managing software licenses
+              </div>
               <DialogHeader>
                 <DialogTitle>{text.createLicense}</DialogTitle>
               </DialogHeader>
@@ -312,7 +315,10 @@ const LicenseManagement: React.FC<LicenseManagementProps> = ({ isUrdu }) => {
                       {text.renewLicense}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent aria-describedby="license-dialog-description">
+                    <div id="license-dialog-description" className="sr-only">
+                      Dialog for managing software licenses
+                    </div>
                     <DialogHeader>
                       <DialogTitle>{text.renewLicense}</DialogTitle>
                     </DialogHeader>

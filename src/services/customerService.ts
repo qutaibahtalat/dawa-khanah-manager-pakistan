@@ -1,43 +1,76 @@
 import { Customer, CustomerHistory } from '@/types/customer';
 
-export const customerService = {
-  customers: [] as Customer[],
-  history: [] as CustomerHistory[],
+import { Customer, CustomerHistory } from '@/types/customer';
+// getBackendBaseUrl is not exported from backend.ts; define it here for compatibility
+function getBackendBaseUrl() {
+  if (typeof window !== 'undefined' && window.api && window.api.getBackendBaseUrl) {
+    return window.api.getBackendBaseUrl();
+  }
+  return 'http://localhost:3001/api';
+}
 
-  // Initialize with sample data
-  init() {
-    this.customers = [
-      {
-        mrNumber: 'MR1001',
-        name: 'Ali Khan',
-        phone: '03001234567',
-        totalCredit: 5000,
-        creditRemaining: 2500,
-        createdAt: new Date()
-      }
-    ];
-    
-    this.history = [
-      {
-        id: '1',
-        customerMr: 'MR1001',
-        type: 'medicine',
-        amount: 1500,
-        date: new Date(),
-        description: 'Medicine purchase',
-        medicineDetails: {
-          name: 'Paracetamol',
-          quantity: 10,
-          price: 150
-        }
-      }
-    ];
-    return this;
+export const customerService = {
+  // Fetch all customers from backend
+  async getCustomers(): Promise<Customer[]> {
+    const res = await fetch(`${getBackendBaseUrl()}/customers`);
+    if (!res.ok) throw new Error('Failed to fetch customers');
+    return res.json();
   },
 
-  // Customer CRUD operations
-  getCustomers() {
-    return this.customers;
+  // Fetch a single customer by MR number
+  async getCustomer(mrNumber: string): Promise<Customer | undefined> {
+    const customers = await this.getCustomers();
+    return customers.find(c => c.mrNumber === mrNumber);
+  },
+
+  // Add a new customer
+  async addCustomer(customer: Omit<Customer, 'createdAt'>): Promise<Customer> {
+    const res = await fetch(`${getBackendBaseUrl()}/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customer)
+    });
+    if (!res.ok) throw new Error('Failed to add customer');
+    return res.json();
+  },
+
+  // Update customer credit
+  async updateCredit(mrNumber: string, amount: number): Promise<Customer> {
+    const customer = await this.getCustomer(mrNumber);
+    if (!customer) throw new Error('Customer not found');
+    const updated = { ...customer, creditRemaining: customer.creditRemaining + amount };
+    const res = await fetch(`${getBackendBaseUrl()}/customers/${customer.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+    if (!res.ok) throw new Error('Failed to update credit');
+    return res.json();
+  },
+
+  // Fetch customer history (stub: implement as needed)
+  async getCustomerHistory(mrNumber: string): Promise<CustomerHistory[]> {
+    // Replace with backend call if endpoint exists
+    return [];
+  },
+
+  // Add history entry (stub: implement as needed)
+  async addHistoryEntry(entry: Omit<CustomerHistory, 'id' | 'date'>): Promise<CustomerHistory> {
+    // Replace with backend call if endpoint exists
+    return { ...entry, id: '', date: new Date().toISOString() } as CustomerHistory;
+  },
+
+  // Log visit (stub: implement as needed)
+  async logVisit(mrNumber: string, note?: string): Promise<void> {
+    // Replace with backend call if endpoint exists
+  },
+
+  // Get visit history (stub: implement as needed)
+  async getVisitHistory(mrNumber: string): Promise<any[]> {
+    // Replace with backend call if endpoint exists
+    return [];
+  }
+};
   },
 
   getCustomer(mrNumber: string) {

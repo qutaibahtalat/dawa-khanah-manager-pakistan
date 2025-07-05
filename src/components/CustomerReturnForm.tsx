@@ -126,7 +126,10 @@ const CustomerReturnForm: React.FC<CustomerReturnFormProps> = ({
 
   return (
     <Dialog open={isOpen}>
-      <DialogContent className="sm:max-w-[500px]" hideCloseButton>
+      <DialogContent className="sm:max-w-[500px]" hideCloseButton aria-describedby="return-form-description">
+        <div id="return-form-description" className="sr-only">
+          Dialog for processing customer returns and refunds
+        </div>
         <DialogHeader>
           <DialogTitle className="text-xl">{t.title}</DialogTitle>
         </DialogHeader>
